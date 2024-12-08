@@ -1,2 +1,8 @@
 # AI_STPA_Risk_Analysis
-A project to create an AI agent that integrates STPA for medical risk analysis
+This project integrates STPA methodology with AI to analyze and predict risks in medical environments like hospitals.
+
+## Getting Started
+To get started, clone the repository:
+```bash
+git clone https://github.com/brachi2002/AI_STPA_Risk_Analysis.git
+
