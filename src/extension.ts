@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
+import { askOpenAI } from './openaiAgent.js';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('🎯 STPA Agent extension is now active.');
 
-	const disposable = vscode.commands.registerCommand('stpa-agent.helloWorld', () => {
+	const disposable = vscode.commands.registerCommand('stpa-agent.helloWorld', async () => {
 		const editor = vscode.window.activeTextEditor;
 
 		if (!editor) {
@@ -51,12 +52,17 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const summary = `📋 Parsed Summary:\nSystem: ${parsed.system || 'N/A'}\nActors: ${parsed.actors.join(', ') || 'None'}\nControl Actions: ${parsed.controlActions.join(', ') || 'None'}\nHazards: ${parsed.hazards.join(', ') || 'None'}\nLosses: ${parsed.losses.join(', ') || 'None'}\nUCAs: ${parsed.ucas.join(', ') || 'None'}`;
 		vscode.window.showInformationMessage(summary);
+
+		// 🔮 Call LLM or simulate response
+		const response = await askOpenAI(parsed);
+		console.log('response: ', response);
+		vscode.window.showInformationMessage(`💡 GPT Suggestion: ${response}`);
 	});
 
 	context.subscriptions.push(disposable);
 }
 
-function parsePastaContent(text: string) {
+export function parsePastaContent(text: string) {
 	const lines = text.split('\n').map(line => line.trim());
 
 	const result: any = {
