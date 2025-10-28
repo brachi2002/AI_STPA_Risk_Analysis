@@ -267,9 +267,9 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   const wantsEdit = (() => {
     const lower = text.toLowerCase();
     return (
-      /(add|create|insert|append|augment|extend|תוסיפ|הוסיפ|צרפ|הכניס|הוסף)/i.test(lower) ||
+      /(add|create|insert|append|augment|extend)/i.test(lower) ||
       /(h\d+|l\d+|uca\d+)/i.test(lower) || // ביטוי כמו "H7" או "UCA9"
-      /(hazard|loss|uca|סיכון|אובדן|בקרה\s*לא\s*בטוחה)/i.test(lower)
+      /(hazard|loss|uca)/i.test(lower)
     );
   })();
 
