@@ -47,54 +47,45 @@ const openai_1 = __importDefault(require("openai"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const dotenv_1 = __importDefault(require("dotenv"));
-const aiEdit_1 = require("./aiEdit");
-// Sidebar Chat (חלון צ׳אט בצד)
+// UI: חלון צ'אט צדדי
 const chatView_1 = require("./chatView");
-// מודולים פנימיים: ולידציה, השלמות חסרים, השלמה-תוך-כדי-כתיבה
+// לוגיקה פנימית: ולידציה / השלמות / אינליין־קומפלישן / עריכות חכמות
 const validator_1 = require("./validator");
 const aiQuickFix_1 = require("./aiQuickFix");
 const inlineCompletion_1 = require("./inlineCompletion");
+const aiEdit_1 = require("./aiEdit");
+// טבלאות + דיאגרמות + חילוץ Control Structure + טיפוסים
+const tables_1 = require("./tables");
+const diagrams_1 = require("./diagrams");
+const csExtract_1 = require("./csExtract");
 /** -----------------------------------------------
- * טעינת משתני סביבה מתוך .env (ל־OPENAI_API_KEY)
+ * טעינת משתני סביבה מתוך .env (OPENAI_API_KEY)
  * ----------------------------------------------- */
 function loadEnvFromExtension(extRoot) {
     try {
         const envPath = path.join(extRoot, '.env');
-        if (fs.existsSync(envPath)) {
+        if (fs.existsSync(envPath))
             dotenv_1.default.config({ path: envPath });
-        }
-        else {
-            dotenv_1.default.config(); // fallback: יטען לפי ה־cwd אם יש
-        }
+        else
+            dotenv_1.default.config();
     }
-    catch {
-        /* noop */
-    }
+    catch { /* noop */ }
 }
 /** -----------------------------------------------------------
- * קונטקסט אחרון שנשמר אחרי ניתוח (לטובת Refine / Export)
- * ----------------------------------------------------------- */
-let lastContext = null;
-/** -----------------------------------------------------------
  * זיהוי דומיין בסיסי מתוך טקסט חופשי (מילות מפתח)
- * משפיע על הרמזים שנשלח לפרומפט
  * ----------------------------------------------------------- */
 function detectSystemType(text) {
     const lower = text.toLowerCase();
-    if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower)) {
+    if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower))
         return 'medical';
-    }
-    if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower)) {
+    if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower))
         return 'drone';
-    }
-    if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower)) {
+    if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower))
         return 'automotive';
-    }
     return 'generic';
 }
 /** -----------------------------------------------------------
- * בניית פרומפט STPA מובנה עם דרישות מינימום ופורמט קבוע
- * זה מבטיח פלט עקבי שקל לפרסר בהמשך
+ * פרומפט STPA מובנה (פלט עקבי שקל לפרסר)
  * ----------------------------------------------------------- */
 function buildStpaPrompt({ systemType = 'generic', text }) {
     const systemHints = {
@@ -147,101 +138,25 @@ function buildStpaPrompt({ systemType = 'generic', text }) {
     ].join('\n');
 }
 /** -----------------------------------------------------------
- * פרסר לפלט ה־LLM: שולף את 3 הסקשנים לפי תגיות [BRACKETS]
- * ומחזיר גם את הטקסט הגולמי
+ * פרסר לפלט ה־LLM (מוציא LOSSES/HAZARDS/UCAS)
  * ----------------------------------------------------------- */
 function parseStpaOutput(text) {
     const grab = (section) => {
         const rx = new RegExp(`\\[${section}\\]([\\s\\S]*?)(\\n\\[|$)`, 'i');
         const m = text.match(rx);
-        if (!m) {
+        if (!m)
             return [];
-        }
-        return m[1]
-            .split(/\r?\n/)
-            .map((s) => s.trim())
-            .filter((s) => s && !/^\[.*\]$/.test(s));
+        return m[1].split(/\r?\n/).map(s => s.trim()).filter(s => s && !/^\[.*\]$/.test(s));
     };
-    const losses = grab('LOSSES');
-    const hazards = grab('HAZARDS');
-    const ucas = grab('UCAS');
-    return { losses, hazards, ucas, raw: text };
-}
-/** ניקוי תו '|' כדי לא לשבור טבלת Markdown */
-function sanitizeCell(s) {
-    return s.replace(/\|/g, '\\|').trim();
-}
-/** פירוק שורה "L5: ..." ל־ID + טקסט */
-function parseLossRow(line) {
-    const m = line.match(/^L(\d+)\s*:\s*(.+)$/i);
-    if (m) {
-        return { id: `L${m[1]}`, text: m[2].trim() };
-    }
-    return { id: '', text: line.trim() };
-}
-/** פירוק שורה "H2: ... (related: L1, L3)" ל־ID/טקסט/קשרים */
-function parseHazardRow(line) {
-    const idm = line.match(/^H(\d+)\s*:\s*(.+)$/i);
-    const id = idm ? `H${idm[1]}` : '';
-    const meta = (line.match(/\(([^)]*)\)/) || [])[1] || '';
-    const rel = (meta.match(/related\s*:\s*([^)]+)/i) || [])[1] || '';
-    const relatedLosses = rel
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => !!s);
-    const text = line
-        .replace(/\([^)]*\)/g, '')
-        .replace(/^H\d+\s*:\s*/i, '')
-        .trim();
-    return { id, text, relatedLosses };
-}
-/** פירוק שורה "UCA3: ... (control loop: ... ; related: H1, H2)" */
-function parseUcaRow(line) {
-    const idm = line.match(/^UCA(\d+)\s*:\s*(.+)$/i);
-    const id = idm ? `UCA${idm[1]}` : '';
-    const meta = (line.match(/\(([^)]*)\)/) || [])[1] || '';
-    const cl = (meta.match(/control\s*loop\s*:\s*([^;)\]]+)/i) || [])[1];
-    const rel = (meta.match(/related\s*:\s*([^)]+)/i) || [])[1] || '';
-    const relatedHazards = rel
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => !!s);
-    const text = line
-        .replace(/\([^)]*\)/g, '')
-        .replace(/^UCA\d+\s*:\s*/i, '')
-        .trim();
-    return { id, text, controlLoop: cl?.trim(), relatedHazards };
-}
-/** בניית טבלת Markdown כללית מראשי עמודות ושורות */
-function mdTable(headers, rows) {
-    const head = `| ${headers.map(sanitizeCell).join(' | ')} |`;
-    const sep = `| ${headers.map(() => '---').join(' | ')} |`;
-    const body = rows.map((r) => `| ${r.map((c) => sanitizeCell(c)).join(' | ')} |`).join('\n');
-    return [head, sep, body].join('\n');
-}
-/** הפיכת StpaResult ל־3 טבלאות Markdown (Losses/Hazards/UCAs) */
-function buildMarkdownTables(result) {
-    const lossRows = result.losses.map(parseLossRow);
-    const hazRows = result.hazards.map(parseHazardRow);
-    const ucaRows = result.ucas.map(parseUcaRow);
-    const lossesTbl = mdTable(['ID', 'Loss Description'], lossRows.map((r) => [r.id || '-', r.text || '-']));
-    const hazardsTbl = mdTable(['ID', 'Hazard Description', 'Related Losses'], hazRows.map((r) => [r.id || '-', r.text || '-', r.relatedLosses.join(', ') || '-']));
-    const ucasTbl = mdTable(['ID', 'UCA Description', 'Control Loop', 'Related Hazards'], ucaRows.map((r) => [r.id || '-', r.text || '-', r.controlLoop || '-', r.relatedHazards.join(', ') || '-']));
-    return [
-        '## Losses',
-        lossesTbl,
-        '',
-        '## Hazards',
-        hazardsTbl,
-        '',
-        '## UCAs',
-        ucasTbl,
-        '',
-    ].join('\n');
+    return {
+        losses: grab('LOSSES'),
+        hazards: grab('HAZARDS'),
+        ucas: grab('UCAS'),
+        raw: text,
+    };
 }
 /** -----------------------------------------------------------
- * שמירת JSON לתיקיית workspace/stpa_results/
- * נוח להשוואות/גרפים/ייצוא עתידי
+ * JSON/Markdown/Output Utilities
  * ----------------------------------------------------------- */
 async function saveResultAsJSON(result) {
     const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -250,19 +165,23 @@ async function saveResultAsJSON(result) {
         return;
     }
     const dir = path.join(ws, 'stpa_results');
-    if (!fs.existsSync(dir)) {
+    if (!fs.existsSync(dir))
         fs.mkdirSync(dir, { recursive: true });
-    }
     const file = path.join(dir, `stpa_result_${Date.now()}.json`);
     fs.writeFileSync(file, JSON.stringify({ losses: result.losses, hazards: result.hazards, ucas: result.ucas }, null, 2), 'utf-8');
     vscode.window.showInformationMessage(`Saved: ${file}`);
 }
-/** -----------------------------------------------------------
- * בניית דוח Markdown מלא (כותרות, טבלאות, פלט גולמי, טקסט מקור)
- * ----------------------------------------------------------- */
+function printToOutput(result) {
+    const out = vscode.window.createOutputChannel('STPA Agent');
+    out.clear();
+    out.appendLine('=== STPA (Markdown Tables) ===\n');
+    out.appendLine((0, tables_1.buildMarkdownTables)(result));
+    out.appendLine('\n=== End of Tables ===\n');
+    out.show(true);
+}
 function buildMarkdownReport(ctx) {
     const when = new Date().toISOString();
-    const tables = buildMarkdownTables(ctx.result);
+    const tables = (0, tables_1.buildMarkdownTables)(ctx.result);
     return [
         `# STPA Report`,
         ``,
@@ -275,6 +194,15 @@ function buildMarkdownReport(ctx) {
         tables,
         `---`,
         ``,
+        `## Diagrams`,
+        ``,
+        `### Control Structure`,
+        ctx.csMermaid || '_No control structure found._',
+        ``,
+        `### UCA → Hazard → Loss`,
+        ctx.impactMermaid || '_No relations found._',
+        ``,
+        `---`,
         `## Raw STPA Output`,
         '```',
         ctx.result.raw.trim(),
@@ -287,9 +215,6 @@ function buildMarkdownReport(ctx) {
         '',
     ].join('\n');
 }
-/** -----------------------------------------------------------
- * שמירת דוח Markdown לתיקיית stpa_results ופתיחה אופציונלית
- * ----------------------------------------------------------- */
 async function saveMarkdownReport(md) {
     const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!ws) {
@@ -297,27 +222,15 @@ async function saveMarkdownReport(md) {
         return null;
     }
     const dir = path.join(ws, 'stpa_results');
-    if (!fs.existsSync(dir)) {
+    if (!fs.existsSync(dir))
         fs.mkdirSync(dir, { recursive: true });
-    }
     const file = path.join(dir, `stpa_report_${Date.now()}.md`);
     fs.writeFileSync(file, md, 'utf-8');
     vscode.window.showInformationMessage(`Markdown report saved: ${file}`);
     return file;
 }
 /** -----------------------------------------------------------
- * הדפסה לערוץ Output בפורמט טבלאות Markdown
- * ----------------------------------------------------------- */
-function printToOutput(result) {
-    const out = vscode.window.createOutputChannel('STPA Agent');
-    out.clear();
-    out.appendLine('=== STPA (Markdown Tables) ===\n');
-    out.appendLine(buildMarkdownTables(result));
-    out.appendLine('\n=== End of Tables ===\n');
-    out.show(true);
-}
-/** -----------------------------------------------------------
- * קריאה ל־GPT להפקת הניתוח הראשוני (STPA Pass)
+ * מודל: ניתוח בסיסי + שדרוג (Refine)
  * ----------------------------------------------------------- */
 async function runModel(apiKey, prompt) {
     const openai = new openai_1.default({ apiKey });
@@ -329,21 +242,12 @@ async function runModel(apiKey, prompt) {
     const content = resp.choices?.[0]?.message?.content || 'No response.';
     return parseStpaOutput(content);
 }
-/** -----------------------------------------------------------
- * קריאה ל־GPT לשדרוג הניתוח האחרון (Refine)
- * מחזיר בלוקים: [SUGGESTED_*], [GAPS], [QUALITY_NOTES]
- * ----------------------------------------------------------- */
 async function runRefine(apiKey, ctx) {
     const openai = new openai_1.default({ apiKey });
     const prev = [
-        '[LOSSES]',
-        ...ctx.result.losses,
-        '',
-        '[HAZARDS]',
-        ...ctx.result.hazards,
-        '',
-        '[UCAS]',
-        ...ctx.result.ucas,
+        '[LOSSES]', ...ctx.result.losses, '',
+        '[HAZARDS]', ...ctx.result.hazards, '',
+        '[UCAS]', ...ctx.result.ucas,
     ].join('\n');
     const prompt = [
         'You are an expert STPA reviewer. Improve the prior STPA pass with targeted additions.',
@@ -370,31 +274,30 @@ async function runRefine(apiKey, ctx) {
         temperature: 0.2,
         messages: [{ role: 'user', content: prompt }],
     });
-    const content = resp.choices?.[0]?.message?.content?.trim() ?? '';
-    return content;
+    return resp.choices?.[0]?.message?.content?.trim() ?? '';
 }
+/** -----------------------------------------------------------
+ * זיכרון לניתוח האחרון (כולל דיאגרמות)
+ * ----------------------------------------------------------- */
+let lastContext = null;
 /** ===========================================================
- *  הפונקציה הראשית של התוסף - נרשום תצוגות ופקודות
+ *  הפונקציה הראשית של ההרחבה
  * =========================================================== */
 function activate(context) {
-    // טען .env (ל־OPENAI_API_KEY) לפי תיקיית ההרחבה
+    // טעינת .env
     const extRoot = vscode.Uri.joinPath(context.extensionUri, '').fsPath;
     loadEnvFromExtension(extRoot);
-    // Sidebar Chat: רישום ה־Webview View (חלון צ׳אט בצד)
+    // Sidebar Chat
     const chatProvider = new chatView_1.StpaChatViewProvider(context);
     context.subscriptions.push(vscode.window.registerWebviewViewProvider(chatView_1.StpaChatViewProvider.viewId, chatProvider));
-    // Inline completion: השלמת־שורה ל־"Sensors:" / "Actuators:" / "Control loop:" וכו'
-    // כרגע עובד על markdown/plaintext עם קונטקסט של ~40 שורות אחורה.
-    // (אפשר לשדרג בהמשך לרמז דומיין חכם)
+    // Inline completion (Sensors/Actuators/Control loop וכו')
     const inlineDisp = (0, inlineCompletion_1.registerInlineCompletion)(() => process.env.OPENAI_API_KEY);
     context.subscriptions.push(inlineDisp);
-    /** --------------------------------------------
-     * פקודה: ניתוח קובץ מלא (Analyze Current File)
-     * -------------------------------------------- */
+    /** Analyze Current File */
     const analyzeFileCmd = vscode.commands.registerCommand('stpa-agent.analyzeCurrentFile', async () => {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            vscode.window.showErrorMessage('Missing OPENAI_API_KEY. Add it to .env (next to package.json) or as an environment variable.');
+            vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
             return;
         }
         const editor = vscode.window.activeTextEditor;
@@ -409,15 +312,29 @@ function activate(context) {
         }
         const status = vscode.window.setStatusBarMessage('🔎 STPA Agent: Running analysis...', 5000);
         try {
-            // 1) Pre-Check: ציון איכות ורשימת חסרים
+            // Pre-Check
             const pre = (0, validator_1.validateInput)(text);
             const out = vscode.window.createOutputChannel('STPA Agent');
             out.clear();
             out.appendLine((0, validator_1.formatIssuesTable)(pre));
             out.show(true);
-            // בקשת פעולה: Refine / Continue / Auto-complete with AI
             const decision = await (0, validator_1.promptOnIssues)(pre);
-            // 1a) Auto-fix: השלמה אוטומטית של סעיפים חסרים ואז Re-check
+            // Auto-fix → Re-check → Analyze
+            const runFull = async (srcText) => {
+                const systemType = detectSystemType(srcText);
+                const prompt = buildStpaPrompt({ systemType, text: srcText });
+                const result = await runModel(apiKey, prompt);
+                printToOutput(result);
+                await saveResultAsJSON(result);
+                // הפקת דיאגרמות מהטקסט ומהתוצאה
+                const cs = (0, csExtract_1.deriveControlStructFromText)(srcText);
+                const csMermaid = (0, diagrams_1.buildControlStructureMermaid)(cs);
+                const impactMermaid = (0, diagrams_1.buildImpactGraphMermaid)(result);
+                lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid };
+                vscode.window.showInformationMessage('Analysis completed. See Output → STPA Agent. A JSON file was saved under stpa_results/.');
+                console.log('CONTROL STRUCTURE:\n', csMermaid);
+                console.log('IMPACT GRAPH:\n', impactMermaid);
+            };
             if (decision === 'autofix') {
                 await (0, aiQuickFix_1.generateAndInsertMissingSections)({
                     apiKey,
@@ -426,42 +343,24 @@ function activate(context) {
                     systemType: detectSystemType(text),
                     issues: pre.issues,
                 });
-                // בדיקה מחדש אחרי ההשלמה
                 const newText = editor.document.getText().trim();
                 const pre2 = (0, validator_1.validateInput)(newText);
                 out.appendLine('\n--- Re-check after AI auto-complete ---');
                 out.appendLine((0, validator_1.formatIssuesTable)(pre2));
-                // אם עדיין יש בעיות — נשאל שוב אם להמשיך או לעצור
                 const proceed = pre2.issues.length === 0 ? 'continue' : await (0, validator_1.promptOnIssues)(pre2);
                 if (proceed !== 'continue') {
-                    vscode.window.showInformationMessage('Analysis canceled after auto-complete. You can refine and try again.');
+                    vscode.window.showInformationMessage('Analysis canceled after auto-complete.');
                     return;
                 }
-                // 2) ניתוח STPA
-                const systemType = detectSystemType(newText);
-                const prompt = buildStpaPrompt({ systemType, text: newText });
-                const result = await runModel(apiKey, prompt);
-                // 3) הצגה כטבלאות + שמירת JSON + עדכון lastContext
-                printToOutput(result);
-                await saveResultAsJSON(result);
-                lastContext = { text: newText, systemType, result };
-                vscode.window.showInformationMessage('Analysis completed. See Output → STPA Agent. A JSON file was saved under stpa_results/.');
+                await runFull(newText);
                 return;
             }
-            // 1b) ביטול
             if (decision === 'cancel') {
-                vscode.window.showInformationMessage('Analysis canceled. Please refine your input and try again.');
+                vscode.window.showInformationMessage('Analysis canceled.');
                 return;
             }
-            // 2) ניתוח רגיל (אם Continue)
-            const systemType = detectSystemType(text);
-            const prompt = buildStpaPrompt({ systemType, text });
-            const result = await runModel(apiKey, prompt);
-            // 3) הצגה כטבלאות + שמירת JSON + עדכון lastContext
-            printToOutput(result);
-            await saveResultAsJSON(result);
-            lastContext = { text, systemType, result };
-            vscode.window.showInformationMessage('Analysis completed. See Output → STPA Agent. A JSON file was saved under stpa_results/.');
+            // Continue (רגיל)
+            await runFull(text);
         }
         catch (err) {
             vscode.window.showErrorMessage(`Error running analysis: ${err?.message || err}`);
@@ -470,10 +369,7 @@ function activate(context) {
             status?.dispose();
         }
     });
-    /** --------------------------------------------
-     * פקודה: ניתוח טקסט מסומן (Analyze Selection)
-     * אם אין סימון — נופל חזרה לכל הקובץ
-     * -------------------------------------------- */
+    /** Analyze Selection */
     const analyzeSelectionCmd = vscode.commands.registerCommand('stpa-agent.analyzeSelection', async () => {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
@@ -492,14 +388,24 @@ function activate(context) {
         }
         const status = vscode.window.setStatusBarMessage('🔎 STPA Agent: Running analysis on selection...', 5000);
         try {
-            // 1) Pre-Check על הבחירה
             const pre = (0, validator_1.validateInput)(selText);
             const out = vscode.window.createOutputChannel('STPA Agent');
             out.clear();
             out.appendLine((0, validator_1.formatIssuesTable)(pre));
             out.show(true);
             const decision = await (0, validator_1.promptOnIssues)(pre);
-            // 1a) Auto-fix לבחירה (משלים סעיפים חסרים) + Re-check
+            const runFull = async (srcText) => {
+                const systemType = detectSystemType(srcText);
+                const prompt = buildStpaPrompt({ systemType, text: srcText });
+                const result = await runModel(apiKey, prompt);
+                printToOutput(result);
+                await saveResultAsJSON(result);
+                const cs = (0, csExtract_1.deriveControlStructFromText)(srcText);
+                const csMermaid = (0, diagrams_1.buildControlStructureMermaid)(cs);
+                const impactMermaid = (0, diagrams_1.buildImpactGraphMermaid)(result);
+                lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid };
+                vscode.window.showInformationMessage('Selection analysis completed. Output shown and JSON saved under stpa_results/.');
+            };
             if (decision === 'autofix') {
                 await (0, aiQuickFix_1.generateAndInsertMissingSections)({
                     apiKey,
@@ -514,30 +420,17 @@ function activate(context) {
                 out.appendLine((0, validator_1.formatIssuesTable)(pre2));
                 const proceed = pre2.issues.length === 0 ? 'continue' : await (0, validator_1.promptOnIssues)(pre2);
                 if (proceed !== 'continue') {
-                    vscode.window.showInformationMessage('Analysis canceled after auto-complete. You can refine and try again.');
+                    vscode.window.showInformationMessage('Analysis canceled after auto-complete.');
                     return;
                 }
-                const systemType = detectSystemType(newSelText);
-                const prompt = buildStpaPrompt({ systemType, text: newSelText });
-                const result = await runModel(apiKey, prompt);
-                printToOutput(result);
-                await saveResultAsJSON(result);
-                lastContext = { text: newSelText, systemType, result };
-                vscode.window.showInformationMessage('Selection analysis completed. Output shown and JSON saved under stpa_results/.');
+                await runFull(newSelText);
                 return;
             }
             if (decision === 'cancel') {
-                vscode.window.showInformationMessage('Analysis canceled. Please refine your input and try again.');
+                vscode.window.showInformationMessage('Analysis canceled.');
                 return;
             }
-            // 2) ניתוח רגיל על הבחירה
-            const systemType = detectSystemType(selText);
-            const prompt = buildStpaPrompt({ systemType, text: selText });
-            const result = await runModel(apiKey, prompt);
-            printToOutput(result);
-            await saveResultAsJSON(result);
-            lastContext = { text: selText, systemType, result };
-            vscode.window.showInformationMessage('Selection analysis completed. Output shown and JSON saved under stpa_results/.');
+            await runFull(selText);
         }
         catch (err) {
             vscode.window.showErrorMessage(`Error analyzing selection: ${err?.message || err}`);
@@ -546,9 +439,7 @@ function activate(context) {
             status?.dispose();
         }
     });
-    /** --------------------------------------------
-     * פקודה: שדרוג הניתוח האחרון (Refine Analysis)
-     * -------------------------------------------- */
+    /** Refine Analysis */
     const refineCmd = vscode.commands.registerCommand('stpa-agent.refineAnalysis', async () => {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
@@ -556,7 +447,7 @@ function activate(context) {
             return;
         }
         if (!lastContext) {
-            vscode.window.showInformationMessage('No previous analysis found. Run "Analyze" first.');
+            vscode.window.showInformationMessage('No previous analysis found.');
             return;
         }
         const status = vscode.window.setStatusBarMessage('🛠 STPA Agent: Refining analysis...', 5000);
@@ -579,12 +470,10 @@ function activate(context) {
             status?.dispose();
         }
     });
-    /** --------------------------------------------
-     * פקודה: יצוא דוח Markdown (לטובת Wiki/דוח/מצגת)
-     * -------------------------------------------- */
+    /** Export Markdown */
     const exportMdCmd = vscode.commands.registerCommand('stpa-agent.exportMarkdown', async () => {
         if (!lastContext) {
-            vscode.window.showInformationMessage('No analysis to export. Run "Analyze" first.');
+            vscode.window.showInformationMessage('No analysis to export.');
             return;
         }
         const md = buildMarkdownReport(lastContext);
@@ -597,13 +486,33 @@ function activate(context) {
             }
         }
     });
-    /** פקודה פנימית: Smart Edit from Chat (מופעלת ע"י ה-webview) */
+    /** Preview Diagrams – Webview עם Mermaid */
+    const previewDiagCmd = vscode.commands.registerCommand('stpa-agent.previewDiagrams', async () => {
+        if (!lastContext) {
+            vscode.window.showInformationMessage('No analysis to preview. Run "Analyze" first.');
+            return;
+        }
+        const panel = vscode.window.createWebviewPanel('stpaDiag', 'STPA Diagrams', vscode.ViewColumn.Beside, { enableScripts: true });
+        panel.webview.html = `
+    <!doctype html>
+    <html><head>
+      <meta charset="utf-8"/>
+      <style> body{font-family:var(--vscode-font-family); padding:12px} .box{margin:12px 0} </style>
+      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <script>mermaid.initialize({ startOnLoad: true });</script>
+    </head>
+    <body>
+      <h2>Control Structure</h2>
+      <div class="box"><pre class="mermaid">${(lastContext.csMermaid || '').replace(/</g, '&lt;')}</pre></div>
+      <h2>UCA → Hazard → Loss</h2>
+      <div class="box"><pre class="mermaid">${(lastContext.impactMermaid || '').replace(/</g, '&lt;')}</pre></div>
+    </body></html>`;
+    });
+    /** Smart Edit (מופעל מה־chatView לצורך "הוסף H7/H8" וכו') */
     const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction) => {
         try {
-            if (!instruction || !instruction.trim()) {
-                vscode.window.showInformationMessage('No instruction provided.');
+            if (!instruction || !instruction.trim())
                 return 'No instruction provided.';
-            }
             const { applied } = await (0, aiEdit_1.smartEditFromChat)(instruction);
             const summary = `Added ${applied.length} line(s):\n` + applied.join('\n');
             vscode.window.setStatusBarMessage('✚ STPA Agent: content inserted', 2500);
@@ -614,9 +523,8 @@ function activate(context) {
             return `Smart edit failed: ${e?.message || e}`;
         }
     });
-    // הוספת כל המנויים לניקוי אוטומטי בסגירת ההרחבה
-    context.subscriptions.push(analyzeFileCmd, analyzeSelectionCmd, refineCmd, exportMdCmd, smartEditCmd, inlineDisp);
+    // רישום כל המנויים
+    context.subscriptions.push(analyzeFileCmd, analyzeSelectionCmd, refineCmd, exportMdCmd, previewDiagCmd, smartEditCmd, inlineDisp);
 }
-// אופציונלי: ניקוי משאבים בסגירת ההרחבה
 function deactivate() { }
 //# sourceMappingURL=extension.js.map

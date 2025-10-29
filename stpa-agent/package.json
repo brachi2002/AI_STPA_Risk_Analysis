@@ -13,9 +13,10 @@
     "onCommand:stpa-agent.analyzeCurrentFile",
     "onCommand:stpa-agent.analyzeSelection",
     "onCommand:stpa-agent.refineAnalysis",
-    "onCommand:stpa-agent.exportMarkdown",
+    "onCommand:stpa-agent.previewDiagrams",
     "onView:stpa-agent.chat",
-    "onCommand:stpa-agent.smartEdit"
+    "onCommand:stpa-agent.smartEdit",
+    "onCommand:stpa-agent.exportMarkdown"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -33,12 +34,16 @@
         "title": "STPA Agent: Refine Analysis"
       },
       {
-        "command": "stpa-agent.exportMarkdown",
-        "title": "STPA Agent: Export Markdown Report"
+        "command": "stpa-agent.previewDiagrams",
+        "title": "STPA Agent: Preview Diagrams"
       },
       {
         "command": "stpa-agent.smartEdit",
         "title": "STPA Agent: Smart Edit from Chat"
+      },
+      {
+        "command": "stpa-agent.exportMarkdown",
+        "title": "STPA Agent: Export Markdown Report"
       }
     ],
     "views": {

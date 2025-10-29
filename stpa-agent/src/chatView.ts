@@ -49,6 +49,9 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
+        case 'previewDiagrams':
+          await vscode.commands.executeCommand('stpa-agent.previewDiagrams');
+          break;
         case 'clear':
           this.post({ type: 'reset' });
           break;
@@ -242,6 +245,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       document.getElementById('btnAnalyzeSel').onclick = () => send('analyzeSelection');
       document.getElementById('btnRefine').onclick = () => send('refine');
       document.getElementById('btnExport').onclick = () => send('exportMd');
+      document.getElementById('btnPreview').onclick = () => send('previewDiagrams');
       document.getElementById('btnClear').onclick = () => {
         vscode.setState({ messages: [] });
         chat.innerHTML = '';
@@ -374,7 +378,9 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               <button id="btnAnalyzeSel">Analyze Selection</button>
               <button id="btnRefine">Refine</button>
               <button id="btnExport">Export .md</button>
+              <button id="btnPreview" class="btn">Preview Diagrams</button>
               <button id="btnClear" class="secondary">Clear</button>
+
             </div>
 
             <div id="chat" class="chat" role="log" aria-live="polite"></div>

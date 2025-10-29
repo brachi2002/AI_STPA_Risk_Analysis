@@ -1,145 +1,262 @@
+// src/aiEdit.ts
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
-type EditKind = 'hazard' | 'loss' | 'uca';
+/** איזה סוג פריט מוסיפים */
+export type EditKind = 'hazard' | 'loss' | 'uca';
 
+/* ===========================
+   עזרי זיהוי ופורמט
+   =========================== */
+
+/** זיהוי סוג מהנחיית המשתמש (גם עברית וגם אנגלית) */
 function detectKindFromInstruction(instr: string): EditKind | null {
-    const t = instr.toLowerCase();
-    if (/(hazard|hazards|h[0-9]+|סיכון|סיכונים|H\d+)/i.test(t)) return 'hazard';
-    if (/(loss|losses|l[0-9]+|אובדן|אבדן|L\d+)/i.test(t)) return 'loss';
-    if (/(uca|ucas|uca[0-9]+|בקרה לא בטוחה|UCA\d+)/i.test(t)) return 'uca';
-    return null;
+  const t = instr.toLowerCase();
+  if (/(hazard|hazards|h[0-9]+|סיכון|סיכונים|H\d+)/i.test(t)) return 'hazard';
+  if (/(loss|losses|l[0-9]+|אובדן|אבדן|L\d+)/i.test(t)) return 'loss';
+  if (/(uca|ucas|uca[0-9]+|בקרה\s*לא\s*בטוחה|UCA\d+)/i.test(t)) return 'uca';
+  return null;
 }
 
-/** החזרת אינדקס ה-next לפי מה שכבר במסמך */
-function nextIndex(lines: string[], prefixRx: RegExp, prefixLabel: string): number {
-    let max = 0;
-    for (const ln of lines) {
-        const m = ln.match(prefixRx);
-        if (m) max = Math.max(max, parseInt(m[1], 10));
+/** חישוב האינדקס הבא לפי השורות שיש כבר במסמך */
+function nextIndex(lines: string[], rx: RegExp): number {
+  let max = 0;
+  for (const ln of lines) {
+    const m = ln.match(rx);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return max + 1;
+}
+
+/* ===========================
+   איתור סקשנים במסמך טקסטואלי
+   =========================== */
+
+/** מחזיר את טווח הסקשן [start,end) לפי כותרות (תומך גם ב-=== UCAS ===) */
+function findSectionRange(lines: string[], kind: EditKind): { start: number; end: number } | null {
+  const headRx =
+    kind === 'hazard'
+      ? /^\s*(\[?\s*HAZARDS\s*\]?|===\s*HAZARDS\s*===)\s*$/i
+      : kind === 'loss'
+      ? /^\s*(\[?\s*LOSSES\s*\]?|===\s*LOSSES\s*===)\s*$/i
+      : /^\s*(\[?\s*UCAS\s*\]?|===\s*UCAS\s*===)\s*$/i;
+
+  // כל כותרת סקשן אחרת (למשל [LOSSES] / === LOSSES === / [SOMETHING ELSE])
+  const nextHeadRx = /^\s*(\[[^\]]+\]|===\s*.+\s*===)\s*$/;
+
+  const start = lines.findIndex(l => headRx.test(l));
+  if (start === -1) return null;
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (nextHeadRx.test(lines[i])) {
+      end = i;
+      break;
     }
-    return max + 1;
+  }
+  return { start, end };
 }
 
-/** מוצא או יוצר כותרת סקשן (לפי סוג) ומחזיר offset שורת ההכנסה */
-function findInsertLine(lines: string[], kind: EditKind): number {
-    const header = kind === 'hazard' ? '[HAZARDS]'
-        : kind === 'loss' ? '[LOSSES]'
-            : '[UCAS]';
+/** מוצא את שורת ההכנסה המדויקת בתוך טווח הסקשן:
+ *  אם יש כבר פריטים (H/L/UCA#) – מכניס אחרי האחרון; אחרת אחרי הכותרת.
+ */
+function findInsertLinePrecise(lines: string[], kind: EditKind): number {
+  const range = findSectionRange(lines, kind);
+  if (!range) {
+    // אם אין סקשן – ניצור בסוף
+    const header = kind === 'hazard' ? '[HAZARDS]' : kind === 'loss' ? '[LOSSES]' : '[UCAS]';
+    lines.push('', header, '');
+    return lines.length; // הכנסה בסוף אחרי הכותרת החדשה
+  }
 
-    let idx = lines.findIndex(l => l.trim().toUpperCase() === header);
-    if (idx === -1) {
-        // אם אין סקשן – ניצור בסוף
-        lines.push('');
-        lines.push(header);
-        lines.push('');
-        idx = lines.length - 1;
+  const itemRx =
+    kind === 'hazard' ? /^H\d+\s*:/i : kind === 'loss' ? /^L\d+\s*:/i : /^UCA\d+\s*:/i;
+
+  let lastItemLine = range.start; // ברירת מחדל: אחרי הכותרת
+  for (let i = range.start + 1; i < range.end; i++) {
+    if (itemRx.test(lines[i])) lastItemLine = i;
+  }
+  return lastItemLine + 1; // אחרי הפריט האחרון
+}
+
+/* ===========================
+   תמיכה במסמכי JSON
+   =========================== */
+
+function isJsonDoc(text: string) {
+  const trimmed = text.trim();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+}
+
+/** מוסיף לתוך מערך hazards/losses/ucas בכל עומק מבני (case-insensitive) */
+function tryInsertIntoJsonArrayDeep(
+  docText: string,
+  kind: EditKind,
+  toInsert: string[]
+): string | null {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(docText);
+  } catch {
+    return null; // לא JSON תקין
+  }
+
+  const targetKey = (k: string) =>
+    k.toLowerCase() === (kind === 'hazard' ? 'hazards' : kind === 'loss' ? 'losses' : 'ucas');
+
+  let updated = false;
+
+  const visit = (node: any) => {
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+    } else if (node && typeof node === 'object') {
+      for (const key of Object.keys(node)) {
+        const val = (node as any)[key];
+        if (targetKey(key) && Array.isArray(val)) {
+          // מכניס כמחרוזות - שומר על סגנון "H7: ..." בתוך המערך
+          for (const line of toInsert) val.push(line);
+          updated = true;
+        } else {
+          visit(val);
+        }
+      }
     }
-    // הכנסה תהיה אחרי הכותרת
-    return idx + 1;
+  };
+
+  visit(parsed);
+
+  if (!updated) return null;
+
+  // שמירה עם הזחה יפה (2 רווחים) ושמירה על סוף שורה אם היה
+  return JSON.stringify(parsed, null, 2) + (docText.endsWith('\n') ? '\n' : '');
 }
 
-/** מייצר פרומפט מתאים ל-LLM שיחזיר רק שורות לתוספת */
+/* ===========================
+   יצירת פריטי טקסט מה-LLM
+   =========================== */
+
+/** פרומפט ל-LLM שמחזיר רק שורות מתאימות להחדרה */
 function buildGenPrompt(kind: EditKind, userInstruction: string, systemText: string): string {
-    const section = kind === 'hazard' ? 'HAZARDS'
-        : kind === 'loss' ? 'LOSSES'
-            : 'UCAS';
+  const section = kind === 'hazard' ? 'HAZARDS' : kind === 'loss' ? 'LOSSES' : 'UCAS';
+  const example =
+    kind === 'hazard'
+      ? 'H7: ... (related: L2, L4)\nH8: ... (related: L1)'
+      : kind === 'loss'
+      ? 'L6: ...\nL7: ...'
+      : 'UCA9: ... (control loop: ... ; related: H2)\nUCA10: ... (control loop: ... ; related: H5)';
 
-    const example =
-        kind === 'hazard'
-            ? 'H7: ... (related: L2, L4)\nH8: ... (related: L1)'
-            : kind === 'loss'
-                ? 'L6: ...\nL7: ...'
-                : 'UCA9: ... (control loop: ... ; related: H2)\nUCA10: ... (control loop: ... ; related: H5)';
-
-    return [
-        `You are assisting an STPA editor. Given the user's instruction and the existing system text,`,
-        `generate ONLY new ${section} lines to insert into the document.`,
-        `STRICT RULES:`,
-        `- Return pure lines in the exact house-style (no extra commentary, no code fences).`,
-        `- Keep each line concise and domain-plausible.`,
-        `- Respect numbering if the user specified (e.g., "H7"). If the user didn't specify numbers, omit numbers and I'll number client-side.`,
-        `- Preserve mappings: Hazards → (related: Lx), UCAs → (control loop: ... ; related: Hx).`,
-        ``,
-        `User instruction:`,
-        userInstruction,
-        ``,
-        `--- SYSTEM TEXT START ---`,
-        systemText,
-        `--- SYSTEM TEXT END ---`,
-        ``,
-        `Example format (for illustration only, do NOT echo the word "Example"):\n${example}`
-    ].join('\n');
+  return [
+    `You are assisting an STPA editor. Given the user's instruction and the existing system text,`,
+    `generate ONLY new ${section} lines to insert into the document.`,
+    `STRICT RULES:`,
+    `- Return pure lines in the exact house-style (no extra commentary, no code fences).`,
+    `- Keep each line concise and domain-plausible.`,
+    `- Respect numbering if the user specified (e.g., "H7"). If the user didn't specify numbers, omit numbers and I'll number client-side.`,
+    `- Preserve mappings: Hazards → (related: Lx), UCAs → (control loop: ... ; related: Hx).`,
+    ``,
+    `User instruction:`,
+    userInstruction,
+    ``,
+    `--- SYSTEM TEXT START ---`,
+    systemText,
+    `--- SYSTEM TEXT END ---`,
+    ``,
+    `Example format (for illustration only, do NOT echo the word "Example"):\n${example}`,
+  ].join('\n');
 }
 
-/** מנרמל שורות שהחזיר GPT (מסיר רעש, מפצל לפי שורות) */
+/** מנרמל את תשובת המודל לשורות נקיות */
 function normalizeGeneratedLines(raw: string): string[] {
-    const body = raw
-        .replace(/^```[\s\S]*?```$/gm, '') // להסיר גדרות, אם הופיע בטעות
-        .split(/\r?\n/)
-        .map(s => s.trim())
-        .filter(Boolean);
-    return body;
+  // מסיר גדרות ופספוסים, מפצל לשורות ומסנן ריקות
+  return raw
+    .replace(/```[\s\S]*?```/g, '')
+    .split(/\r?\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
-/** מוסיף שורות למסמך הפעיל, תוך נומרציה אם צריך */
-export async function smartEditFromChat(instruction: string, kindHint?: EditKind): Promise<{ applied: string[], preview: string[] }> {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) throw new Error('No active editor to edit.');
+/* ===========================
+   נקודת הכניסה הציבורית
+   =========================== */
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
+/**
+ * מקבל הנחיה חופשית מהצ'אט, מייצר שורות בעזרת LLM,
+ * מבצע נומרציה אם צריך, ומחדיר למקום המדויק:
+ * - במסמכי טקסט: בתוך הסקשן הרלוונטי ובדיוק אחרי הפריט האחרון.
+ * - במסמכי JSON: לתוך המערך hazards/losses/ucas (גם אם מקונן).
+ */
+export async function smartEditFromChat(
+  instruction: string,
+  kindHint?: EditKind
+): Promise<{ applied: string[]; preview: string[] }> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) throw new Error('No active editor to edit.');
 
-    const docText = editor.document.getText();
-    const lines = docText.split(/\r?\n/);
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
 
-    const kind = kindHint || detectKindFromInstruction(instruction);
-    if (!kind) throw new Error('Could not infer what to add (hazards / losses / UCAs). Mention it in your message.');
+  const docText = editor.document.getText();
+  const lines = docText.split(/\r?\n/);
 
-    // בקשת הצעה מה-LLM
-    const openai = new OpenAI({ apiKey });
-    const prompt = buildGenPrompt(kind, instruction, docText);
-    const resp = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.2,
-        messages: [{ role: 'user', content: prompt }]
-    });
-    const raw = resp.choices?.[0]?.message?.content?.trim() || '';
-    const genLines = normalizeGeneratedLines(raw);
-    if (!genLines.length) throw new Error('Model returned no lines to insert.');
+  // זיהוי סוג הפריט
+  const kind = kindHint || detectKindFromInstruction(instruction);
+  if (!kind) throw new Error('Could not infer what to add (hazards / losses / UCAs). Mention it in your message.');
 
-    // חישוב נקודת הכנסה
-    const insertAt = findInsertLine(lines, kind);
+  // בקשת שורות מהמודל
+  const openai = new OpenAI({ apiKey });
+  const prompt = buildGenPrompt(kind, instruction, docText);
+  const resp = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0.2,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const raw = resp.choices?.[0]?.message?.content?.trim() || '';
+  const genLines = normalizeGeneratedLines(raw);
+  if (!genLines.length) throw new Error('Model returned no lines to insert.');
 
-    // האם למספר? (אם אין מספרים בשורות)
-    const hasNumbers = genLines.some(l => kind === 'hazard' ? /^H\d+:/i.test(l) : kind === 'loss' ? /^L\d+:/i.test(l) : /^UCA\d+:/i.test(l));
+  // האם כבר הגיעו ממוספרות?
+  const hasNumbers = genLines.some(l =>
+    kind === 'hazard' ? /^H\d+:/i.test(l) : kind === 'loss' ? /^L\d+:/i.test(l) : /^UCA\d+:/i.test(l)
+  );
 
-    let toInsert = genLines.slice();
+  let toInsert = genLines.slice();
 
-    if (!hasNumbers) {
-        // נמספר לפי הסוג
-        const next =
-            kind === 'hazard'
-                ? nextIndex(lines, /^H(\d+)\s*:/i, 'H')
-                : kind === 'loss'
-                    ? nextIndex(lines, /^L(\d+)\s*:/i, 'L')
-                    : nextIndex(lines, /^UCA(\d+)\s*:/i, 'UCA');
+  // נומרציה אוטומטית לפי הקיים במסמך הטקסטואלי
+  if (!hasNumbers) {
+    const next =
+      kind === 'hazard'
+        ? nextIndex(lines, /^H(\d+)\s*:/i)
+        : kind === 'loss'
+        ? nextIndex(lines, /^L(\d+)\s*:/i)
+        : nextIndex(lines, /^UCA(\d+)\s*:/i);
 
-        toInsert = genLines.map((l, i) =>
-            kind === 'hazard'
-                ? `H${next + i}: ${l.replace(/^H\d+\s*:\s*/i, '')}`
-                : kind === 'loss'
-                    ? `L${next + i}: ${l.replace(/^L\d+\s*:\s*/i, '')}`
-                    : `UCA${next + i}: ${l.replace(/^UCA\d+\s*:\s*/i, '')}`
-        );
+    toInsert = genLines.map((l, i) =>
+      kind === 'hazard'
+        ? `H${next + i}: ${l.replace(/^H\d+\s*:\s*/i, '')}`
+        : kind === 'loss'
+        ? `L${next + i}: ${l.replace(/^L\d+\s*:\s*/i, '')}`
+        : `UCA${next + i}: ${l.replace(/^UCA\d+\s*:\s*/i, '')}`
+    );
+  }
+
+  // מסמך JSON? ננסה להחדיר עמוק לתוך המערך המתאים
+  if (isJsonDoc(docText)) {
+    const updated = tryInsertIntoJsonArrayDeep(docText, kind, toInsert);
+    if (updated) {
+      const fullRange = new vscode.Range(
+        new vscode.Position(0, 0),
+        new vscode.Position(editor.document.lineCount, 0)
+      );
+      await editor.edit(ed => ed.replace(fullRange, updated));
+      return { applied: toInsert, preview: genLines };
     }
+    // אם לא מצאנו מערך מתאים – ניפול לגישת טקסט (ניצור סקשן טקסטואלי בסוף)
+  }
 
-    // ביצוע ההכנסה במסמך
-    const insertText = (toInsert.join('\n') + '\n');
-    const pos = new vscode.Position(insertAt, 0);
-    await editor.edit(ed => {
-        ed.insert(pos, insertText);
-    });
+  // מסמך טקסטואלי: החדרה במקום המדויק בתוך הסקשן
+  const insertAt = findInsertLinePrecise(lines, kind);
+  const pos = new vscode.Position(insertAt, 0);
+  await editor.edit(ed => ed.insert(pos, toInsert.join('\n') + '\n'));
 
-    return { applied: toInsert, preview: genLines };
+  return { applied: toInsert, preview: genLines };
 }
