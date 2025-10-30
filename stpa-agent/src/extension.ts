@@ -253,6 +253,15 @@ let lastContext: {
 	impactMermaid?: string;
 } | null = null;
 
+
+function stripCodeFence(s?: string): string {
+	if (!s) return '';
+	return s
+		.replace(/^\s*```mermaid\s*/i, '')  // מסיר ```mermaid בתחילת הטקסט
+		.replace(/\s*```$/i, '')            // מסיר ``` בסוף הטקסט
+		.trim();
+}
+
 /** ===========================================================
  *  הפונקציה הראשית של ההרחבה
  * =========================================================== */
@@ -306,6 +315,9 @@ export function activate(context: vscode.ExtensionContext) {
 				const cs = deriveControlStructFromText(srcText);
 				const csMermaid = buildControlStructureMermaid(cs);
 				const impactMermaid = buildImpactGraphMermaid(result);
+
+
+
 
 				lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid };
 				vscode.window.showInformationMessage('Analysis completed. See Output → STPA Agent. A JSON file was saved under stpa_results/.');
@@ -446,10 +458,15 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+
+
 	/** Preview Diagrams – Webview עם Mermaid */
 	const previewDiagCmd = vscode.commands.registerCommand('stpa-agent.previewDiagrams', async () => {
 		if (!lastContext) { vscode.window.showInformationMessage('No analysis to preview. Run "Analyze" first.'); return; }
 		const panel = vscode.window.createWebviewPanel('stpaDiag', 'STPA Diagrams', vscode.ViewColumn.Beside, { enableScripts: true });
+		const csRaw = stripCodeFence(lastContext?.csMermaid || '');
+		const impRaw = stripCodeFence(lastContext?.impactMermaid || '');
+
 		panel.webview.html = `
     <!doctype html>
     <html><head>
@@ -460,9 +477,13 @@ export function activate(context: vscode.ExtensionContext) {
     </head>
     <body>
       <h2>Control Structure</h2>
-      <div class="box"><pre class="mermaid">${(lastContext.csMermaid || '').replace(/</g, '&lt;')}</pre></div>
-      <h2>UCA → Hazard → Loss</h2>
-      <div class="box"><pre class="mermaid">${(lastContext.impactMermaid || '').replace(/</g, '&lt;')}</pre></div>
+		<div class="mermaid">
+		${csRaw || 'graph TD\nA[No data]-->B[Run Analyze]'}
+		</div>
+		<h2>UCA → Hazard → Loss</h2>
+		<div class="mermaid">
+		${impRaw || 'graph LR\nA[No data]-->B[Run Analyze]'}
+		</div>
     </body></html>`;
 	});
 
