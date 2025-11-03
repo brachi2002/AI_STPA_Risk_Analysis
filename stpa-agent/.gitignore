@@ -32,3 +32,7 @@ stpa_results/
 # Temp files
 tmp/
 temp/
+
+# Build outputs
+out/
+*.js.map
