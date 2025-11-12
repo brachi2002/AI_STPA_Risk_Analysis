@@ -9,53 +9,105 @@
   "categories": [
     "Other"
   ],
+
+  "main": "./out/extension.js",
+
   "activationEvents": [
+    "onView:stpa-agent.chat",
     "onCommand:stpa-agent.analyzeCurrentFile",
     "onCommand:stpa-agent.analyzeSelection",
     "onCommand:stpa-agent.refineAnalysis",
+    "onCommand:stpa-agent.exportMarkdown",
     "onCommand:stpa-agent.previewDiagrams",
-    "onView:stpa-agent.chat",
-    "onCommand:stpa-agent.smartEdit",
-    "onCommand:stpa-agent.exportMarkdown"
+    "onCommand:stpa-agent.smartEdit"
   ],
-  "main": "./out/extension.js",
+
   "contributes": {
-    "commands": [
-      {
-        "command": "stpa-agent.analyzeCurrentFile",
-        "title": "STPA Agent: Analyze Current File"
-      },
-      {
-        "command": "stpa-agent.analyzeSelection",
-        "title": "STPA Agent: Analyze Selection"
-      },
-      {
-        "command": "stpa-agent.refineAnalysis",
-        "title": "STPA Agent: Refine Analysis"
-      },
-      {
-        "command": "stpa-agent.previewDiagrams",
-        "title": "STPA Agent: Preview Diagrams"
-      },
-      {
-        "command": "stpa-agent.smartEdit",
-        "title": "STPA Agent: Smart Edit from Chat"
-      },
-      {
-        "command": "stpa-agent.exportMarkdown",
-        "title": "STPA Agent: Export Markdown Report"
-      }
-    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "stpaAgent",
+          "title": "STPA Agent",
+          "icon": "media/analyze.svg"
+        }
+      ]
+    },
+
     "views": {
-      "explorer": [
+      "stpaAgent": [
         {
           "id": "stpa-agent.chat",
           "name": "STPA Agent",
           "type": "webview"
         }
       ]
-    }
+    },
+
+    "commands": [
+      {
+        "command": "stpa-agent.analyzeCurrentFile",
+        "title": "STPA Agent: Analyze File",
+        "icon": {
+          "light": "media/analyze.svg",
+          "dark": "media/analyze.svg"
+        }
+      },
+      {
+        "command": "stpa-agent.analyzeSelection",
+        "title": "STPA Agent: Analyze Selection",
+        "icon": {
+          "light": "media/selection.svg",
+          "dark": "media/selection.svg"
+        }
+      },
+      {
+        "command": "stpa-agent.refineAnalysis",
+        "title": "STPA Agent: Refine Analysis",
+        "icon": {
+          "light": "media/refine.svg",
+          "dark": "media/refine.svg"
+        }
+      },
+      {
+        "command": "stpa-agent.exportMarkdown",
+        "title": "STPA Agent: Export Markdown Report",
+        "icon": {
+          "light": "media/export.svg",
+          "dark": "media/export.svg"
+        }
+      },
+      {
+        "command": "stpa-agent.previewDiagrams",
+        "title": "STPA Agent: Preview Diagrams",
+        "icon": {
+          "light": "media/diagram.svg",
+          "dark": "media/diagram.svg"
+        }
+      },
+      {
+        "command": "stpa-agent.smartEdit",
+        "title": "STPA Agent: Smart Edit from Chat",
+        "icon": {
+          "light": "media/clear.svg",
+          "dark": "media/clear.svg"
+        }
+      }
+    ],
+
+    "keybindings": [
+      {
+        "command": "stpa-agent.analyzeCurrentFile",
+        "key": "ctrl+alt+a",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "stpa-agent.analyzeSelection",
+        "key": "ctrl+alt+s",
+        "when": "editorTextFocus"
+      }
+    ]
   },
+
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
@@ -64,6 +116,7 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
@@ -75,6 +128,7 @@
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
   },
+
   "dependencies": {
     "dotenv": "^17.2.2",
     "openai": "^5.23.0"
