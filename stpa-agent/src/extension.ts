@@ -30,9 +30,11 @@ import type { SystemType, StpaResult, ControlStructInput } from './types';
 function loadEnvFromExtension(extRoot: string) {
 	try {
 		const envPath = path.join(extRoot, '.env');
-		if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
-		else dotenv.config();
-	} catch { /* noop */ }
+		if (fs.existsSync(envPath)) { dotenv.config({ path: envPath }); }
+		else { dotenv.config(); }
+	} catch {
+		/* noop */
+	}
 }
 
 /** -----------------------------------------------------------
@@ -40,9 +42,9 @@ function loadEnvFromExtension(extRoot: string) {
  * ----------------------------------------------------------- */
 function detectSystemType(text: string): SystemType {
 	const lower = text.toLowerCase();
-	if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower)) return 'medical';
-	if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower)) return 'drone';
-	if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower)) return 'automotive';
+	if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower)) { return 'medical'; }
+	if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower)) { return 'drone'; }
+	if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower)) { return 'automotive'; }
 	return 'generic';
 }
 
@@ -108,8 +110,11 @@ function parseStpaOutput(text: string): StpaResult {
 	const grab = (section: string) => {
 		const rx = new RegExp(`\\[${section}\\]([\\s\\S]*?)(\\n\\[|$)`, 'i');
 		const m = text.match(rx);
-		if (!m) return [];
-		return m[1].split(/\r?\n/).map(s => s.trim()).filter(s => s && !/^\[.*\]$/.test(s));
+		if (!m) { return []; }
+		return m[1]
+			.split(/\r?\n/)
+			.map((s) => s.trim())
+			.filter((s) => s && !/^\[.*\]$/.test(s));
 	};
 	return {
 		losses: grab('LOSSES'),
@@ -119,17 +124,80 @@ function parseStpaOutput(text: string): StpaResult {
 	};
 }
 
+// ===== Project folder helpers =====
+
+type ProjectInfo = {
+	dir: string; // תיקיית הפרויקט המלאה
+	baseName: string; // שם בסיס לקבצים (ללא סיומת)
+};
+
+/** הפיכה של שם חופשי ל-slug נחמד לתיקייה/קובץ */
+function slugify(name: string): string {
+	return (
+		name
+			.toLowerCase()
+			.trim()
+			.replace(/[^a-z0-9א-ת]+/gi, '-') // כל מה שלא אות/ספרה → מקף
+			.replace(/^-+|-+$/g, '') || 'stpa-project'
+	);
+}
+
+/** מבקש שם פרויקט מהמשתמש, יוצר תיקייה מתחת ל-stpa_results, ומחזיר פרטים */
+async function prepareProjectFolder(suggested?: string): Promise<ProjectInfo | null> {
+	const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (!ws) {
+		vscode.window.showErrorMessage('No workspace is open. Open a folder first.');
+		return null;
+	}
+
+	const input = await vscode.window.showInputBox({
+		title: 'STPA – Project name',
+		prompt: 'איך לקרוא לניתוח / למערכת? (ישמש לתיקייה ולקבצים)',
+		value: suggested || 'my-system',
+		ignoreFocusOut: true,
+	});
+
+	if (!input) {
+		vscode.window.showInformationMessage('Analysis canceled – no project name provided.');
+		return null;
+	}
+
+	const baseName = slugify(input);
+	const rootDir = path.join(ws, 'stpa_results');
+	if (!fs.existsSync(rootDir)) {
+		fs.mkdirSync(rootDir, { recursive: true });
+	}
+	const dir = path.join(rootDir, baseName);
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { recursive: true });
+	}
+	return { dir, baseName };
+}
+
+/** מוריד ```mermaid ו-``` מסטרינג אם יש */
+function stripCodeFence(s?: string): string {
+	if (!s) { return ''; }
+	return s
+		.replace(/^\s*```mermaid\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim();
+}
+
 /** -----------------------------------------------------------
  * JSON/Markdown/Output Utilities
  * ----------------------------------------------------------- */
-async function saveResultAsJSON(result: StpaResult) {
-	const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	if (!ws) { vscode.window.showErrorMessage('No workspace is open to save the file.'); return; }
-	const dir = path.join(ws, 'stpa_results');
-	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-	const file = path.join(dir, `stpa_result_${Date.now()}.json`);
-	fs.writeFileSync(file, JSON.stringify({ losses: result.losses, hazards: result.hazards, ucas: result.ucas }, null, 2), 'utf-8');
-	vscode.window.showInformationMessage(`Saved: ${file}`);
+async function saveResultAsJSON(result: StpaResult, project: ProjectInfo) {
+	const file = path.join(project.dir, `${project.baseName}_stpa.json`);
+	fs.writeFileSync(
+		file,
+		JSON.stringify(
+			{ losses: result.losses, hazards: result.hazards, ucas: result.ucas },
+			null,
+			2
+		),
+		'utf-8'
+	);
+	vscode.window.showInformationMessage(`STPA JSON saved: ${file}`);
 }
 
 function printToOutput(result: StpaResult) {
@@ -141,35 +209,41 @@ function printToOutput(result: StpaResult) {
 	out.show(true);
 }
 
-function buildMarkdownReport(ctx: { text: string; systemType: SystemType; result: StpaResult; csMermaid?: string; impactMermaid?: string }): string {
+function buildMarkdownReport(ctx: {
+	text: string;
+	systemType: SystemType;
+	result: StpaResult;
+	csMermaid?: string;
+	impactMermaid?: string;
+}): string {
 	const when = new Date().toISOString();
 	const tables = buildMarkdownTables(ctx.result);
 	return [
 		`# STPA Report`,
-		``,
+		'',
 		`- **Generated:** ${when}`,
 		`- **Domain:** ${ctx.systemType}`,
-		``,
+		'',
 		`---`,
-		``,
+		'',
 		`## Analysis Tables`,
 		tables,
 		`---`,
-		``,
+		'',
 		`## Diagrams`,
-		``,
+		'',
 		`### Control Structure`,
 		ctx.csMermaid || '_No control structure found._',
-		``,
+		'',
 		`### UCA → Hazard → Loss`,
 		ctx.impactMermaid || '_No relations found._',
-		``,
+		'',
 		`---`,
 		`## Raw STPA Output`,
 		'```',
 		ctx.result.raw.trim(),
 		'```',
-		``,
+		'',
 		`## Source System Text`,
 		'```',
 		ctx.text.trim(),
@@ -178,16 +252,42 @@ function buildMarkdownReport(ctx: { text: string; systemType: SystemType; result
 	].join('\n');
 }
 
-async function saveMarkdownReport(md: string): Promise<string | null> {
-	const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	if (!ws) { vscode.window.showErrorMessage('No workspace is open to save the file.'); return null; }
-	const dir = path.join(ws, 'stpa_results');
-	if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-	const file = path.join(dir, `stpa_report_${Date.now()}.md`);
+async function saveMarkdownReport(md: string, project: ProjectInfo): Promise<string | null> {
+	const file = path.join(project.dir, `${project.baseName}_report.md`);
 	fs.writeFileSync(file, md, 'utf-8');
 	vscode.window.showInformationMessage(`Markdown report saved: ${file}`);
 	return file;
 }
+
+async function saveMermaidDiagrams(
+	project: ProjectInfo,
+	csMermaid?: string,
+	impactMermaid?: string
+) {
+	if (!csMermaid && !impactMermaid) {
+		return;
+	}
+
+	const clean = (s?: string) =>
+		(s || '')
+			.replace(/^\s*```mermaid\s*/i, '')
+			.replace(/\s*```$/i, '')
+			.trim();
+
+	const csRaw = clean(csMermaid);
+	const impRaw = clean(impactMermaid);
+
+	if (csRaw) {
+		const csFile = path.join(project.dir, `${project.baseName}_cs.mmd`);
+		fs.writeFileSync(csFile, csRaw, 'utf-8');
+	}
+
+	if (impRaw) {
+		const impFile = path.join(project.dir, `${project.baseName}_impact.mmd`);
+		fs.writeFileSync(impFile, impRaw, 'utf-8');
+	}
+}
+
 
 /** -----------------------------------------------------------
  * מודל: ניתוח בסיסי + שדרוג (Refine)
@@ -203,13 +303,21 @@ async function runModel(apiKey: string, prompt: string): Promise<StpaResult> {
 	return parseStpaOutput(content);
 }
 
-async function runRefine(apiKey: string, ctx: { text: string; systemType: SystemType; result: StpaResult }): Promise<string> {
+async function runRefine(
+	apiKey: string,
+	ctx: { text: string; systemType: SystemType; result: StpaResult }
+): Promise<string> {
 	const openai = new OpenAI({ apiKey });
 
 	const prev = [
-		'[LOSSES]', ...ctx.result.losses, '',
-		'[HAZARDS]', ...ctx.result.hazards, '',
-		'[UCAS]', ...ctx.result.ucas,
+		'[LOSSES]',
+		...ctx.result.losses,
+		'',
+		'[HAZARDS]',
+		...ctx.result.hazards,
+		'',
+		'[UCAS]',
+		...ctx.result.ucas,
 	].join('\n');
 
 	const prompt = [
@@ -242,7 +350,7 @@ async function runRefine(apiKey: string, ctx: { text: string; systemType: System
 }
 
 /** -----------------------------------------------------------
- * זיכרון לניתוח האחרון (כולל דיאגרמות)
+ * זיכרון לניתוח האחרון (כולל דיאגרמות + פרויקט)
  * ----------------------------------------------------------- */
 let lastContext: {
 	text: string;
@@ -251,16 +359,8 @@ let lastContext: {
 	cs?: ControlStructInput;
 	csMermaid?: string;
 	impactMermaid?: string;
+	project?: ProjectInfo;
 } | null = null;
-
-
-function stripCodeFence(s?: string): string {
-	if (!s) return '';
-	return s
-		.replace(/^\s*```mermaid\s*/i, '')  // מסיר ```mermaid בתחילת הטקסט
-		.replace(/\s*```$/i, '')            // מסיר ``` בסוף הטקסט
-		.trim();
-}
 
 /** ===========================================================
  *  הפונקציה הראשית של ההרחבה
@@ -283,13 +383,22 @@ export function activate(context: vscode.ExtensionContext) {
 	/** Analyze Current File */
 	const analyzeFileCmd = vscode.commands.registerCommand('stpa-agent.analyzeCurrentFile', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
-		if (!apiKey) { vscode.window.showErrorMessage('Missing OPENAI_API_KEY.'); return; }
+		if (!apiKey) {
+			vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
+			return;
+		}
 
 		const editor = vscode.window.activeTextEditor;
-		if (!editor) { vscode.window.showInformationMessage('No open file to analyze.'); return; }
+		if (!editor) {
+			vscode.window.showInformationMessage('No open file to analyze.');
+			return;
+		}
 
 		const text = editor.document.getText().trim();
-		if (!text) { vscode.window.showInformationMessage('File is empty. Provide a system description or code.'); return; }
+		if (!text) {
+			vscode.window.showInformationMessage('File is empty. Provide a system description or code.');
+			return;
+		}
 
 		const status = vscode.window.setStatusBarMessage('🔎 STPA Agent: Running analysis...', 5000);
 		try {
@@ -302,28 +411,39 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const decision = await promptOnIssues(pre);
 
-			// Auto-fix → Re-check → Analyze
+			// פונקציה שמריצה את כל האנליזה, כולל קבלת שם פרויקט ושמירה
 			const runFull = async (srcText: string) => {
+				const suggestedName = editor.document.fileName
+					? path.basename(editor.document.fileName, path.extname(editor.document.fileName))
+					: 'my-system';
+				const project = await prepareProjectFolder(suggestedName);
+				if (!project) { return; }
+
 				const systemType = detectSystemType(srcText);
 				const prompt = buildStpaPrompt({ systemType, text: srcText });
 				const result = await runModel(apiKey, prompt);
 
+				// Output + דיאגרמות
 				printToOutput(result);
-				await saveResultAsJSON(result);
-
-				// הפקת דיאגרמות מהטקסט ומהתוצאה
 				const cs = deriveControlStructFromText(srcText);
 				const csMermaid = buildControlStructureMermaid(cs);
 				const impactMermaid = buildImpactGraphMermaid(result);
+				await saveMermaidDiagrams(project, csMermaid, impactMermaid);
 
+				// עדכון קונטקסט
+				lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid, project };
 
+				// שמירה לפרויקט
+				const md = buildMarkdownReport(lastContext);
+				await saveResultAsJSON(result, project);
+				await saveMarkdownReport(md, project);
 
+				// פתיחת דיאגרמות
+				vscode.commands.executeCommand('stpa-agent.previewDiagrams');
 
-				lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid };
-				vscode.window.showInformationMessage('Analysis completed. See Output → STPA Agent. A JSON file was saved under stpa_results/.');
-				console.log('CONTROL STRUCTURE:\n', csMermaid);
-				console.log('IMPACT GRAPH:\n', impactMermaid);
-
+				vscode.window.showInformationMessage(
+					`Analysis completed for project "${project.baseName}". Files saved under stpa_results/${project.baseName}.`
+				);
 			};
 
 			if (decision === 'autofix') {
@@ -339,16 +459,21 @@ export function activate(context: vscode.ExtensionContext) {
 				out.appendLine('\n--- Re-check after AI auto-complete ---');
 				out.appendLine(formatIssuesTable(pre2));
 				const proceed = pre2.issues.length === 0 ? 'continue' : await promptOnIssues(pre2);
-				if (proceed !== 'continue') { vscode.window.showInformationMessage('Analysis canceled after auto-complete.'); return; }
+				if (proceed !== 'continue') {
+					vscode.window.showInformationMessage('Analysis canceled after auto-complete.');
+					return;
+				}
 				await runFull(newText);
 				return;
 			}
 
-			if (decision === 'cancel') { vscode.window.showInformationMessage('Analysis canceled.'); return; }
+			if (decision === 'cancel') {
+				vscode.window.showInformationMessage('Analysis canceled.');
+				return;
+			}
 
 			// Continue (רגיל)
 			await runFull(text);
-
 		} catch (err: any) {
 			vscode.window.showErrorMessage(`Error running analysis: ${err?.message || err}`);
 		} finally {
@@ -359,13 +484,22 @@ export function activate(context: vscode.ExtensionContext) {
 	/** Analyze Selection */
 	const analyzeSelectionCmd = vscode.commands.registerCommand('stpa-agent.analyzeSelection', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
-		if (!apiKey) { vscode.window.showErrorMessage('Missing OPENAI_API_KEY.'); return; }
+		if (!apiKey) {
+			vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
+			return;
+		}
 
 		const editor = vscode.window.activeTextEditor;
-		if (!editor) { vscode.window.showInformationMessage('No editor is active.'); return; }
+		if (!editor) {
+			vscode.window.showInformationMessage('No editor is active.');
+			return;
+		}
 
 		const selText = editor.document.getText(editor.selection).trim() || editor.document.getText().trim();
-		if (!selText) { vscode.window.showInformationMessage('No text to analyze.'); return; }
+		if (!selText) {
+			vscode.window.showInformationMessage('No text to analyze.');
+			return;
+		}
 
 		const status = vscode.window.setStatusBarMessage('🔎 STPA Agent: Running analysis on selection...', 5000);
 		try {
@@ -378,19 +512,35 @@ export function activate(context: vscode.ExtensionContext) {
 			const decision = await promptOnIssues(pre);
 
 			const runFull = async (srcText: string) => {
+				const suggestedName = editor.document.fileName
+					? path.basename(editor.document.fileName, path.extname(editor.document.fileName)) + '-selection'
+					: 'selection';
+				const project = await prepareProjectFolder(suggestedName);
+				if (!project) { return; }
+
 				const systemType = detectSystemType(srcText);
 				const prompt = buildStpaPrompt({ systemType, text: srcText });
 				const result = await runModel(apiKey, prompt);
 
 				printToOutput(result);
-				await saveResultAsJSON(result);
 
 				const cs = deriveControlStructFromText(srcText);
 				const csMermaid = buildControlStructureMermaid(cs);
 				const impactMermaid = buildImpactGraphMermaid(result);
 
-				lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid };
-				vscode.window.showInformationMessage('Selection analysis completed. Output shown and JSON saved under stpa_results/.');
+				await saveMermaidDiagrams(project, csMermaid, impactMermaid);
+
+				lastContext = { text: srcText, systemType, result, cs, csMermaid, impactMermaid, project };
+
+				const md = buildMarkdownReport(lastContext);
+				await saveResultAsJSON(result, project);
+				await saveMarkdownReport(md, project);
+
+				vscode.commands.executeCommand('stpa-agent.previewDiagrams');
+
+				vscode.window.showInformationMessage(
+					`Selection analysis completed for project "${project.baseName}".`
+				);
 			};
 
 			if (decision === 'autofix') {
@@ -406,15 +556,20 @@ export function activate(context: vscode.ExtensionContext) {
 				out.appendLine('\n--- Re-check after AI auto-complete ---');
 				out.appendLine(formatIssuesTable(pre2));
 				const proceed = pre2.issues.length === 0 ? 'continue' : await promptOnIssues(pre2);
-				if (proceed !== 'continue') { vscode.window.showInformationMessage('Analysis canceled after auto-complete.'); return; }
+				if (proceed !== 'continue') {
+					vscode.window.showInformationMessage('Analysis canceled after auto-complete.');
+					return;
+				}
 				await runFull(newSelText);
 				return;
 			}
 
-			if (decision === 'cancel') { vscode.window.showInformationMessage('Analysis canceled.'); return; }
+			if (decision === 'cancel') {
+				vscode.window.showInformationMessage('Analysis canceled.');
+				return;
+			}
 
 			await runFull(selText);
-
 		} catch (err: any) {
 			vscode.window.showErrorMessage(`Error analyzing selection: ${err?.message || err}`);
 		} finally {
@@ -425,14 +580,23 @@ export function activate(context: vscode.ExtensionContext) {
 	/** Refine Analysis */
 	const refineCmd = vscode.commands.registerCommand('stpa-agent.refineAnalysis', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
-		if (!apiKey) { vscode.window.showErrorMessage('Missing OPENAI_API_KEY.'); return; }
-		if (!lastContext) { vscode.window.showInformationMessage('No previous analysis found.'); return; }
+		if (!apiKey) {
+			vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
+			return;
+		}
+		if (!lastContext) {
+			vscode.window.showInformationMessage('No previous analysis found.');
+			return;
+		}
 
 		const status = vscode.window.setStatusBarMessage('🛠 STPA Agent: Refining analysis...', 5000);
 		try {
 			const out = vscode.window.createOutputChannel('STPA Agent');
 			const refined = await runRefine(apiKey, lastContext);
-			if (!refined) { vscode.window.showWarningMessage('No refinement suggestions were returned.'); return; }
+			if (!refined) {
+				vscode.window.showWarningMessage('No refinement suggestions were returned.');
+				return;
+			}
 			out.appendLine('\n=== REFINEMENT SUGGESTIONS ===\n');
 			out.appendLine(refined);
 			out.show(true);
@@ -444,11 +608,32 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	/** Export Markdown */
+	/** Export Markdown – אפשר לייצא שוב, לתיקיית פרויקט (קיימת או חדשה) */
 	const exportMdCmd = vscode.commands.registerCommand('stpa-agent.exportMarkdown', async () => {
-		if (!lastContext) { vscode.window.showInformationMessage('No analysis to export.'); return; }
+		if (!lastContext) {
+			vscode.window.showInformationMessage('No analysis to export.');
+			return;
+		}
+
+		// כאן אנחנו מבטיחים שמשתנה project הוא תמיד מסוג ProjectInfo בלבד
+		let project: ProjectInfo;
+
+		if (lastContext.project) {
+			// כבר יש פרויקט מהניתוח הקודם
+			project = lastContext.project;
+		} else {
+			// אין פרויקט – נשאל את המשתמש/ת שם וניצור אחד חדש
+			const created = await prepareProjectFolder('export');
+			if (!created) {
+				// המשתמש/ת ביטלה את תיבת הקלט
+				return;
+			}
+			project = created;
+			lastContext.project = project;
+		}
+
 		const md = buildMarkdownReport(lastContext);
-		const saved = await saveMarkdownReport(md);
+		const saved = await saveMarkdownReport(md, project);
 		if (saved) {
 			const open = await vscode.window.showInformationMessage('Open Markdown report?', 'Open');
 			if (open === 'Open') {
@@ -459,38 +644,101 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 
-
-	/** Preview Diagrams – Webview עם Mermaid */
+	/** Preview Diagrams – Webview עם Mermaid + זום */
 	const previewDiagCmd = vscode.commands.registerCommand('stpa-agent.previewDiagrams', async () => {
-		if (!lastContext) { vscode.window.showInformationMessage('No analysis to preview. Run "Analyze" first.'); return; }
-		const panel = vscode.window.createWebviewPanel('stpaDiag', 'STPA Diagrams', vscode.ViewColumn.Beside, { enableScripts: true });
-		const csRaw = stripCodeFence(lastContext?.csMermaid || '');
-		const impRaw = stripCodeFence(lastContext?.impactMermaid || '');
+		if (!lastContext) {
+			vscode.window.showInformationMessage('No analysis to preview. Run "Analyze" first.');
+			return;
+		}
+
+		const csRaw = stripCodeFence(lastContext.csMermaid);
+		const impRaw = stripCodeFence(lastContext.impactMermaid);
+
+		const panel = vscode.window.createWebviewPanel(
+			'stpaDiag',
+			'STPA Diagrams',
+			vscode.ViewColumn.Beside,
+			{ enableScripts: true }
+		);
 
 		panel.webview.html = `
-    <!doctype html>
-    <html><head>
-      <meta charset="utf-8"/>
-      <style> body{font-family:var(--vscode-font-family); padding:12px} .box{margin:12px 0} </style>
-      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-      <script>mermaid.initialize({ startOnLoad: true });</script>
-    </head>
-    <body>
-      <h2>Control Structure</h2>
-		<div class="mermaid">
-		${csRaw || 'graph TD\nA[No data]-->B[Run Analyze]'}
-		</div>
-		<h2>UCA → Hazard → Loss</h2>
-		<div class="mermaid">
-		${impRaw || 'graph LR\nA[No data]-->B[Run Analyze]'}
-		</div>
-    </body></html>`;
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  :root { --zoom: 1; }
+  body{font-family:var(--vscode-font-family); padding:12px}
+  h2{margin:16px 0 8px}
+  .toolbar{display:flex;gap:8px;align-items:center;margin:6px 0 12px}
+  .wrap{
+    border:1px solid var(--vscode-editorGroup-border);
+    border-radius:8px;
+    overflow:auto;
+    width:100%;
+    height:40vh;
+    background:var(--vscode-editor-background);
+    padding:8px;
+  }
+  .wrap.second{height:48vh;}
+  .wrap svg{
+    width:auto !important;
+    height:auto !important;
+    transform: scale(var(--zoom));
+    transform-origin: top left;
+  }
+  button{
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none; border-radius:6px; padding:4px 10px; cursor:pointer;
+  }
+  button:hover{ background: var(--vscode-button-hoverBackground); }
+  .zoomVal{opacity:.7}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: false }
+  });
+  let zoom = 1;
+  function setZoom(z){
+    zoom = Math.max(0.25, Math.min(3, z));
+    document.documentElement.style.setProperty('--zoom', zoom);
+    const el = document.getElementById('zoomVal');
+    if (el) el.textContent = Math.round(zoom*100) + '%';
+  }
+  function zoomIn(){ setZoom(zoom + 0.1); }
+  function zoomOut(){ setZoom(zoom - 0.1); }
+  function zoomReset(){ setZoom(1); }
+  window.addEventListener('load', () => setZoom(1));
+</script>
+</head>
+<body>
+<h2>Control Structure</h2>
+<div class="toolbar">
+  <button onclick="zoomOut()">−</button>
+  <button onclick="zoomReset()">100%</button>
+  <button onclick="zoomIn()">+</button>
+  <span class="zoomVal" id="zoomVal">100%</span>
+</div>
+<div class="wrap">
+  <div class="mermaid">${csRaw || 'graph TD\\nA[No data]-->B[Run Analyze]'}</div>
+</div>
+
+<h2>UCA → Hazard → Loss</h2>
+<div class="wrap second">
+  <div class="mermaid">${impRaw || 'graph LR\\nA[No data]-->B[Run Analyze]'}</div>
+</div>
+</body>
+</html>`;
 	});
 
 	/** Smart Edit (מופעל מה־chatView לצורך "הוסף H7/H8" וכו') */
 	const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction?: string) => {
 		try {
-			if (!instruction || !instruction.trim()) return 'No instruction provided.';
+			if (!instruction || !instruction.trim()) { return 'No instruction provided.'; }
 			const { applied } = await smartEditFromChat(instruction);
 			const summary = `Added ${applied.length} line(s):\n` + applied.join('\n');
 			vscode.window.setStatusBarMessage('✚ STPA Agent: content inserted', 2500);
@@ -501,6 +749,102 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	// -------------------------------------------
+	// WATCHER – update report + diagrams on JSON save
+	// -------------------------------------------
+
+	const jsonWatcher = vscode.workspace.onDidSaveTextDocument(async (doc) => {
+		try {
+			// בודק אם זה קובץ תוצאת ניתוח
+			const file = path.basename(doc.fileName);
+			if (!file.endsWith('_stpa.json')) { return; }
+
+			// תיקיית הפרויקט
+			const dir = path.dirname(doc.fileName);
+
+			// טוען JSON
+			let parsed: any = null;
+			try {
+				parsed = JSON.parse(doc.getText());
+			} catch (e) {
+				vscode.window.showErrorMessage('❌ JSON parsing failed – fix the JSON format.');
+				return;
+			}
+
+			// בודק שהשדות קיימים
+			const result: StpaResult = {
+				losses: parsed.losses ?? [],
+				hazards: parsed.hazards ?? [],
+				ucas: parsed.ucas ?? [],
+				raw: doc.getText()
+			};
+
+			// **************************************
+			// 1. Rebuild impact diagram
+			// **************************************
+			const impactMermaid = buildImpactGraphMermaid(result);
+
+			fs.writeFileSync(
+				path.join(dir, file.replace('_stpa.json', '_impact.mmd')),
+				impactMermaid,
+				'utf-8'
+			);
+
+			// **************************************
+			// 2. Rebuild control structure (simplified, no sourceText)
+			// **************************************
+			// כיוון שאין טקסט מערכת → נייצר רק משהו בסיסי או ריק
+			const csMermaid = `graph TD\n A[System] --> B[No sourceText provided]`;
+
+			fs.writeFileSync(
+				path.join(dir, file.replace('_stpa.json', '_cs.mmd')),
+				csMermaid,
+				'utf-8'
+			);
+
+			// **************************************
+			// 3. Rebuild Markdown report
+			// **************************************
+			const md = [
+				`# STPA Report`,
+				`Generated: ${new Date().toISOString()}`,
+				``,
+				`## Tables`,
+				buildMarkdownTables(result),
+				``,
+				`## Diagrams`,
+				`### Control Structure`,
+				'```mermaid',
+				csMermaid,
+				'```',
+				``,
+				`### UCA → Hazard → Loss`,
+				'```mermaid',
+				impactMermaid,
+				'```',
+				``,
+				`## Raw JSON`,
+				'```json',
+				doc.getText(),
+				'```'
+			].join('\n');
+
+			fs.writeFileSync(
+				path.join(dir, file.replace('_stpa.json', '_report.md')),
+				md,
+				'utf-8'
+			);
+
+			vscode.window.showInformationMessage('✔ Project updated: report + diagrams regenerated.');
+
+		} catch (err: any) {
+			vscode.window.showErrorMessage('Watcher error: ' + (err?.message || err));
+		}
+	});
+
+	// להוסיף למנויים
+
+
 	// רישום כל המנויים
 	context.subscriptions.push(
 		analyzeFileCmd,
@@ -509,7 +853,9 @@ export function activate(context: vscode.ExtensionContext) {
 		exportMdCmd,
 		previewDiagCmd,
 		smartEditCmd,
-		inlineDisp
+		inlineDisp,
+		jsonWatcher
+
 	);
 }
 

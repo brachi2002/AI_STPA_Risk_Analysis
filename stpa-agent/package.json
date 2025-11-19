@@ -9,9 +9,7 @@
   "categories": [
     "Other"
   ],
-
   "main": "./out/extension.js",
-
   "activationEvents": [
     "onView:stpa-agent.chat",
     "onCommand:stpa-agent.analyzeCurrentFile",
@@ -21,7 +19,6 @@
     "onCommand:stpa-agent.previewDiagrams",
     "onCommand:stpa-agent.smartEdit"
   ],
-
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -32,7 +29,6 @@
         }
       ]
     },
-
     "views": {
       "stpaAgent": [
         {
@@ -42,7 +38,6 @@
         }
       ]
     },
-
     "commands": [
       {
         "command": "stpa-agent.analyzeCurrentFile",
@@ -93,7 +88,6 @@
         }
       }
     ],
-
     "keybindings": [
       {
         "command": "stpa-agent.analyzeCurrentFile",
@@ -107,7 +101,6 @@
       }
     ]
   },
-
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
@@ -116,7 +109,6 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
-
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
@@ -128,7 +120,6 @@
     "eslint": "^9.25.1",
     "typescript": "^5.8.3"
   },
-
   "dependencies": {
     "dotenv": "^17.2.2",
     "openai": "^5.23.0"

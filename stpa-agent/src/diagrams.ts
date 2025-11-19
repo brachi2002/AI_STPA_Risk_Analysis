@@ -14,8 +14,11 @@ export function buildControlStructureMermaid(cs: ControlStructInput): string {
         (arr || []).forEach((n, i) => {
             const id = nodeId(pref, i);
             const label = esc(n);
-            if (shape === '()') lines.push(`${id}((${label}))`);
-            else lines.push(`${id}[${label}]`);
+            if (shape === '()') {
+                lines.push(`${id}((${label}))`);
+            } else {
+                lines.push(`${id}[${label}]`);
+            }
         });
     };
 
@@ -52,14 +55,14 @@ export function buildImpactGraphMermaid(stpa: StpaResult): string {
     stpa.ucas.forEach((u) => {
         const uid = idOf(u);
         const meta = parseUcaRow(u);
-        meta.relatedHazards.forEach((hid) => { if (uid && hid) lines.push(`${uid} --> ${hid}`); });
+        meta.relatedHazards.forEach((hid) => { if (uid && hid) { lines.push(`${uid} --> ${hid}`); } });
     });
 
     // Edges H -> L
     stpa.hazards.forEach((h) => {
         const hid = idOf(h);
         const meta = parseHazardRow(h);
-        meta.relatedLosses.forEach((lid) => { if (hid && lid) lines.push(`${hid} --> ${lid}`); });
+        meta.relatedLosses.forEach((lid) => { if (hid && lid) { lines.push(`${hid} --> ${lid}`); } });
     });
 
     // Styles
@@ -72,10 +75,10 @@ export function buildImpactGraphMermaid(stpa: StpaResult): string {
 
 function idOf(line: string): string {
     const u = line.match(/^UCA(\d+)/i);
-    if (u) return `UCA${u[1]}`;
+    if (u) { return `UCA${u[1]}`; }
     const h = line.match(/^H(\d+)/i);
-    if (h) return `H${h[1]}`;
+    if (h) { return `H${h[1]}`; }
     const l = line.match(/^L(\d+)/i);
-    if (l) return `L${l[1]}`;
+    if (l) { return `L${l[1]}`; }
     return 'N' + Math.random().toString(36).slice(2, 7);
 }

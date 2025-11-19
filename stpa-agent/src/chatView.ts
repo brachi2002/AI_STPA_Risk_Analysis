@@ -8,7 +8,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) { }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
@@ -261,26 +261,45 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         }
       });
 
-      function onSend(){
+      function onSend() {
         const text = input.value.trim();
         if (!text) return;
         input.value = '';
         append('user', text, true);
 
-        // heuristic: smart-edit when user asks to add/insert hazards/ucas/losses
-        const lower = text.toLowerCase();
-        const wantsEdit =
-          /(add|create|insert|append|augment|extend)/i.test(lower) ||
-          /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
-          /(hazard|loss|uca)/i.test(lower);
+        // 🧭 Intent: בקשה להריץ ניתוח STPA (בעברית/אנגלית)
+        const t = text.toLowerCase();
+        const wantAnalyze =
+          /(run|do|perform|start).*stpa|analy[sz]e.*stpa/.test(t) ||
+          /(ת(ע|)שה|הרץ|בצע).*(ניתוח|אנליזה).*stpa/.test(t) ||
+          /(ניתוח\s*stpa|ניתוח\s*לדף\s*זה|תעשה\s*לי\s*ניתוח)/.test(t);
 
-        showTyping();
-        if (wantsEdit){
-          send('smartEdit', { text });
-        } else {
-          send('manualPrompt', { text });
+        if (wantAnalyze) {
+          // אפשר להראות הודעת מערכת קטנה
+          append('system', 'Running STPA analysis…', true);
+          send('analyzeFile');      // אפשר גם analyzeSelection אם תרצי לפי הֶקשר
+          return;                   // לא שולחים ל-LLM הודעה חופשית
         }
-      }
+
+  // 🧠 Intent: Smart-Edit (הוספת H7/UCA9 וכו')
+  const wantsEdit = (() => {
+    const lower = t;
+    return (
+      /(add|create|insert|append|augment|extend)/i.test(lower) ||
+      /(h\d+|l\d+|uca\d+)/i.test(lower) ||
+      /(hazard|loss|uca)/i.test(lower) ||
+      /(הוסף|להוסיף|תוסיפי|תוסיפו)/.test(lower)
+    );
+  })();
+
+  showTyping();
+  if (wantsEdit) {
+    send('smartEdit', { text }); // עריכה בקובץ
+  } else {
+    send('manualPrompt', { text }); // שאלה חופשית ל-LLM
+  }
+}
+
 
       function send(type, payload){ vscode.postMessage({ type, payload }); }
 
