@@ -1,23 +1,42 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
-type ChatRole = 'user' | 'assistant' | 'system';
-type ChatMsg = { id: string; role: ChatRole; text: string };
+type ChatMsg = { id: string; role: 'user' | 'assistant' | 'system'; text: string };
+
+type ToolbarIcons = {
+  analyze: vscode.Uri;
+  selection: vscode.Uri;
+  refine: vscode.Uri;
+  export: vscode.Uri;
+  diagram: vscode.Uri;
+  clear: vscode.Uri;
+};
 
 export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
-  constructor(private readonly context: vscode.ExtensionContext) { }
+  constructor(private readonly context: vscode.ExtensionContext) {}
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
     const webview = webviewView.webview;
     webview.options = { enableScripts: true };
 
-    webview.html = this.getHtml(webview);
+    // אייקונים מתיקיית media
+    const mediaRoot = vscode.Uri.joinPath(this.context.extensionUri, 'media');
+    const icons: ToolbarIcons = {
+      analyze: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'analyze.svg')),
+      selection: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'selection.svg')),
+      refine: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'refine.svg')),
+      export: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'export.svg')),
+      diagram: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'diagram.svg')),
+      clear: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'clear.svg')),
+    };
 
-    // Handle messages from webview
+    webview.html = this.getHtml(icons);
+
+    // קבלת הודעות מה-webview (כפתורים / צ׳אט)
     webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
         case 'analyzeFile':
@@ -66,10 +85,10 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /** Manual chat with the model – returns reply into the webview */
+  /** שיחה ידנית מול GPT – התשובה תחזור ל-webview כהודעת assistant */
   private async runManualPrompt(text: string) {
     if (!text.trim()) {
-      this.post({ type: 'toast', payload: 'Please type a message.' });
+      this.post({ type: 'toast', payload: 'נא להקליד הודעה.' });
       return;
     }
     const apiKey = process.env.OPENAI_API_KEY;
@@ -88,7 +107,10 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       const content = resp.choices?.[0]?.message?.content?.trim() || '(no response)';
       this.post({ type: 'append', payload: { role: 'assistant', text: content } });
     } catch (e: any) {
-      this.post({ type: 'append', payload: { role: 'assistant', text: `Error: ${e?.message || e}` } });
+      this.post({
+        type: 'append',
+        payload: { role: 'assistant', text: `Error: ${e?.message || e}` },
+      });
     } finally {
       this.post({ type: 'busy', payload: false });
     }
@@ -98,166 +120,233 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage(message);
   }
 
-  private getHtml(webview: vscode.Webview): string {
-    // Build URIs for icons from /media
-    const mediaUri = (name: string) =>
-      webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', name));
-
-    const iconAnalyze = mediaUri('analyze.svg');
-    const iconSel = mediaUri('selection.svg');
-    const iconRefine = mediaUri('refine.svg');
-    const iconExport = mediaUri('export.svg');
-    const iconDiagram = mediaUri('diagram.svg');
-    const iconClear = mediaUri('clear.svg');
-
+  private getHtml(icons: ToolbarIcons): string {
     const css = `
-      :root{
+      :root {
         --bg: var(--vscode-sideBar-background);
-        --panel: var(--vscode-editor-background);
         --fg: var(--vscode-foreground);
         --muted: var(--vscode-descriptionForeground);
         --border: var(--vscode-editorGroup-border);
-        --accent: #12c2c2;              /* turquoise */
-        --accent-hover:#0fb2b2;
-        --accent-fg: #ffffff;
+        --btn-bg: var(--vscode-button-background);
+        --btn-bg-hover: var(--vscode-button-hoverBackground);
+        --btn-fg: var(--vscode-button-foreground);
         --input-bg: var(--vscode-input-background);
         --input-fg: var(--vscode-input-foreground);
         --input-border: var(--vscode-input-border);
-        --assistant-bubble: var(--vscode-editorInlayHint-background,#00000020);
+        --link: var(--vscode-textLink-foreground);
       }
-      *{box-sizing:border-box}
-      html,body{height:100%}
-      body{
-        margin:0;padding:0;background:var(--bg);color:var(--fg);
-        font-family: var(--vscode-font-family); font-size:13px;
-      }
-
-      .container{
-        display:grid;grid-template-rows:auto 1fr auto;gap:10px;height:100%;padding:10px;
-      }
-
-      .toolbar{
-        display:grid;
-        grid-template-columns: 1fr auto; /* left: stacks, right: clear */
-        align-items:center;
-        gap:8px;
-      }
-      .btn-stacks{
-        display:flex; flex-direction:column; gap:8px;
-      }
-      .row{
-        display:flex; gap:8px; flex-wrap:wrap;
-      }
-      .spacer{flex:1}
-
-      button.btn{
-        display:inline-flex; align-items:center; gap:8px;
-        max-width: 100%;
-        background: var(--accent);
-        color: var(--accent-fg);
-        border:none; border-radius:10px;
-        padding:10px 14px;               /* a bit taller */
-        font-weight:600;
-        cursor:pointer;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      }
-      button.btn:hover{ background: var(--accent-hover); }
-      button.secondary{
-        background:transparent; color:var(--fg);
-        border:1px solid var(--border);
-      }
-      button .icon{
-        width:16px; height:16px; display:inline-block; flex:0 0 auto;
-        background-size:contain; background-repeat:no-repeat; background-position:center;
-        filter: invert(1) brightness(2); /* make white on turquoise */
-      }
-      button.secondary .icon{
-        filter: none; /* keep original on secondary button */
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--vscode-font-family);
+        font-size: 13px;
       }
 
-      .chat{
-        background: var(--panel);
-        border:1px solid var(--border);
-        border-radius:10px;
-        padding:10px;
-        overflow:auto;
+      /* שלושה אזורים: צ'אט (למעלה), כפתורים (באמצע), שורת כתיבה (למטה) */
+      .container {
+        display: grid;
+        grid-template-rows: 1fr auto auto;
+        height: 100%;
+        gap: 8px;
+        padding: 10px;
       }
 
-      .msg{display:flex; gap:8px; margin:8px 0; align-items:flex-end;}
-      .bubble{
-        max-width:85%;
-        padding:10px 12px;
-        border-radius:12px;
-        white-space:pre-wrap; word-wrap:break-word;
+      /* === CHAT === */
+      .chat {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+        overflow: auto;
+        background: var(--vscode-editor-background);
       }
-      .role{font-size:11px; color:var(--muted); margin:0 6px;}
-
-      .user{ justify-content:flex-end; }
-      .user .bubble{
-        background: var(--accent); color:#fff; border-bottom-right-radius:4px;
+      .msg {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0;
+        align-items: flex-end;
       }
-      .assistant{ justify-content:flex-start; }
-      .assistant .bubble{
-        background: var(--assistant-bubble); border-bottom-left-radius:4px;
+      .bubble {
+        max-width: 85%;
+        padding: 8px 10px;
+        border-radius: 12px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
       }
-      .system{ justify-content:center; }
-      .system .bubble{
-        background: transparent; color: var(--muted);
-        border:1px dashed var(--border);
-      }
-
-      .composer{
-        display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:end;
-      }
-      textarea{
-        width:100%; min-height:56px; max-height:160px; resize:vertical;
-        padding:10px; border-radius:10px;
-        background: var(--input-bg); color:var(--input-fg); border:1px solid var(--input-border);
+      .role {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 0 6px;
       }
 
-      .busy{ opacity:.65; pointer-events:none; }
-      .typing{ display:inline-block; width:1.1em; text-align:left; }
-      .typing::after{ content:'…'; animation: blink 1s infinite steps(1,end); }
-      @keyframes blink{ 50%{ opacity:0; } }
+      .user { justify-content: flex-end; }
+      .user .bubble {
+        background: var(--vscode-charts-blue);
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
 
-      a{ color: var(--vscode-textLink-foreground); }
+      .assistant { justify-content: flex-start; }
+      .assistant .bubble {
+        background: var(--vscode-editorInlayHint-background, #00000020);
+        border-bottom-left-radius: 4px;
+      }
+
+      .system {
+        justify-content: center;
+      }
+      .system .bubble {
+        background: transparent;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+      }
+
+      /* === TOOLBAR – כפתורים מתחת לצ'אט, במרכז === */
+      .toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .toolbar-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .tool-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        border: none;
+        padding: 8px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        min-width: 150px;
+        min-height: 40px;
+        white-space: nowrap;
+      }
+      .tool-btn:hover { background: var(--btn-bg-hover); }
+
+      .tool-btn.secondary {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        font-weight: 500;
+      }
+      .tool-btn.secondary:hover {
+        background: var(--vscode-editor-background);
+      }
+
+      .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-icon img {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+      .btn-label {
+        line-height: 1;
+      }
+
+      /* === COMPOSER – האזור שכותבים בו (פשוט, כמו קודם) === */
+      .composer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: end;
+      }
+      textarea {
+        width: 100%;
+        min-height: 56px;
+        max-height: 160px;
+        resize: vertical;
+        padding: 8px;
+        border-radius: 8px;
+        background: var(--input-bg);
+        color: var(--input-fg);
+        border: 1px solid var(--input-border);
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--btn-bg);
+      }
+
+      .send-btn {
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        border: none;
+        padding: 0 22px;
+        min-height: 56px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .send-btn:hover { background: var(--btn-bg-hover); }
+
+      .busy { opacity: 0.65; pointer-events: none; }
+
+      .typing {
+        display: inline-block;
+        width: 1.1em;
+        text-align: left;
+      }
+      .typing::after {
+        content: '…';
+        animation: blink 1s infinite steps(1,end);
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+      a { color: var(--link); }
     `;
 
     const js = `
       const vscode = acquireVsCodeApi();
-      const state = vscode.getState() || { messages: [] };
 
+      const state = vscode.getState() || { messages: [] };
       const chat = document.getElementById('chat');
       const input = document.getElementById('input');
-      const root  = document.getElementById('root');
+      const root = document.getElementById('root');
 
-      // Initial render
-      (state.messages || []).forEach(m => append(m.role, m.text, false));
-      if (!state.messages || state.messages.length === 0){
+      // רנדר ראשון של ההודעות
+      if (!state.messages || state.messages.length === 0) {
         append('system', 'Welcome to the STPA Agent. How can I help you?', true);
+      } else {
+        (state.messages || []).forEach(m => append(m.role, m.text, false));
       }
       scrollToBottom();
 
-      // Buttons
+      // כפתורים
       document.getElementById('btnAnalyze').onclick = () => send('analyzeFile');
       document.getElementById('btnAnalyzeSel').onclick = () => send('analyzeSelection');
       document.getElementById('btnRefine').onclick = () => send('refine');
-      document.getElementById('btnExport').onclick = () => send('exportMd');
       document.getElementById('btnPreview').onclick = () => send('previewDiagrams');
       document.getElementById('btnClear').onclick = () => {
         vscode.setState({ messages: [] });
         chat.innerHTML = '';
-        append('system', 'Welcome to the STPA Agent. How can I help you?', true);
         send('clear');
       };
 
-      // Send
+      // שליחה ידנית
       document.getElementById('btnSend').onclick = onSend;
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault(); onSend();
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          onSend();
         }
       });
 
@@ -267,60 +356,46 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         input.value = '';
         append('user', text, true);
 
-        // 🧭 Intent: בקשה להריץ ניתוח STPA (בעברית/אנגלית)
-        const t = text.toLowerCase();
-        const wantAnalyze =
-          /(run|do|perform|start).*stpa|analy[sz]e.*stpa/.test(t) ||
-          /(ת(ע|)שה|הרץ|בצע).*(ניתוח|אנליזה).*stpa/.test(t) ||
-          /(ניתוח\s*stpa|ניתוח\s*לדף\s*זה|תעשה\s*לי\s*ניתוח)/.test(t);
+        // זיהוי האם המשתמש מבקש לערוך את הקובץ (Smart Edit)
+        const wantsEdit = (() => {
+          const lower = text.toLowerCase();
+          return (
+            /(add|create|insert|append|augment|extend)/i.test(lower) ||
+            /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
+            /(hazard|loss|uca)/i.test(lower)
+          );
+        })();
 
-        if (wantAnalyze) {
-          // אפשר להראות הודעת מערכת קטנה
-          append('system', 'Running STPA analysis…', true);
-          send('analyzeFile');      // אפשר גם analyzeSelection אם תרצי לפי הֶקשר
-          return;                   // לא שולחים ל-LLM הודעה חופשית
+        showTyping();
+
+        if (wantsEdit) {
+          console.log('[ChatView] Smart edit trigger detected:', text);
+          send('smartEdit', { text });
+        } else {
+          send('manualPrompt', { text });
         }
+      }
 
-  // 🧠 Intent: Smart-Edit (הוספת H7/UCA9 וכו')
-  const wantsEdit = (() => {
-    const lower = t;
-    return (
-      /(add|create|insert|append|augment|extend)/i.test(lower) ||
-      /(h\d+|l\d+|uca\d+)/i.test(lower) ||
-      /(hazard|loss|uca)/i.test(lower) ||
-      /(הוסף|להוסיף|תוסיפי|תוסיפו)/.test(lower)
-    );
-  })();
+      function send(type, payload) { vscode.postMessage({ type, payload }); }
 
-  showTyping();
-  if (wantsEdit) {
-    send('smartEdit', { text }); // עריכה בקובץ
-  } else {
-    send('manualPrompt', { text }); // שאלה חופשית ל-LLM
-  }
-}
-
-
-      function send(type, payload){ vscode.postMessage({ type, payload }); }
-
-      // From extension
+      // קבלת הודעות מה-extension
       window.addEventListener('message', (event) => {
         const msg = event.data;
-        if (msg.type === 'append'){
+        if (msg.type === 'append') {
           hideTyping();
           append(msg.payload.role, msg.payload.text, true);
-        } else if (msg.type === 'busy'){
+        } else if (msg.type === 'busy') {
           if (msg.payload) root.classList.add('busy'); else root.classList.remove('busy');
-        } else if (msg.type === 'toast'){
+        } else if (msg.type === 'toast') {
           append('system', String(msg.payload), true);
-        } else if (msg.type === 'reset'){
+        } else if (msg.type === 'reset') {
           chat.innerHTML = '';
           vscode.setState({ messages: [] });
         }
       });
 
       // UI helpers
-      function append(role, text, persist=true){
+      function append(role, text, persist = true) {
         const row = document.createElement('div');
         row.className = 'msg ' + role;
 
@@ -330,23 +405,31 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
         const label = document.createElement('div');
         label.className = 'role';
-        label.textContent = role === 'user' ? 'You' : (role === 'assistant' ? 'STPA Agent' : 'Info');
+        label.textContent = role === 'user'
+          ? 'You'
+          : (role === 'assistant' ? 'STPA Agent' : 'Info');
 
-        if (role === 'user'){ row.appendChild(label); row.appendChild(bubble); }
-        else { row.appendChild(bubble); row.appendChild(label); }
+        if (role === 'user') {
+          row.appendChild(label);
+          row.appendChild(bubble);
+        } else {
+          row.appendChild(bubble);
+          row.appendChild(label);
+        }
 
         chat.appendChild(row);
         scrollToBottom();
 
-        if (persist){
+        if (persist) {
           const messages = (vscode.getState()?.messages || []);
           messages.push({ id: String(Date.now()), role, text });
           vscode.setState({ messages });
         }
       }
 
+      // "הקלדה…" מדומה עד שמגיעה תשובה
       let typingRow = null;
-      function showTyping(){
+      function showTyping() {
         hideTyping();
         typingRow = document.createElement('div');
         typingRow.className = 'msg assistant';
@@ -361,11 +444,14 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         chat.appendChild(typingRow);
         scrollToBottom();
       }
-      function hideTyping(){
-        if (typingRow && typingRow.parentElement){ chat.removeChild(typingRow); }
+      function hideTyping() {
+        if (typingRow && typingRow.parentElement) {
+          chat.removeChild(typingRow);
+        }
         typingRow = null;
       }
-      function scrollToBottom(){ chat.scrollTop = chat.scrollHeight; }
+
+      function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
     `;
 
     return `
@@ -373,54 +459,47 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       <html>
         <head>
           <meta charset="utf-8" />
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
           <style>${css}</style>
         </head>
         <body>
           <div id="root" class="container">
-            <div class="toolbar">
-              <div class="btn-stacks">
-                <div class="row">
-                  <button id="btnAnalyze" class="btn">
-                    <span class="icon" style="background-image:url('${iconAnalyze}');"></span>
-                    <span class="label">Analyze File</span>
-                  </button>
-                  <button id="btnAnalyzeSel" class="btn">
-                    <span class="icon" style="background-image:url('${iconSel}');"></span>
-                    <span class="label">Analyze Selection</span>
-                  </button>
-                </div>
-                <div class="row">
-                  <button id="btnRefine" class="btn">
-                    <span class="icon" style="background-image:url('${iconRefine}');"></span>
-                    <span class="label">Refine</span>
-                  </button>
-                  <button id="btnExport" class="btn">
-                    <span class="icon" style="background-image:url('${iconExport}');"></span>
-                    <span class="label">Export .md</span>
-                  </button>
-                  <button id="btnPreview" class="btn">
-                    <span class="icon" style="background-image:url('${iconDiagram}');"></span>
-                    <span class="label">Preview Diagrams</span>
-                  </button>
-                </div>
-              </div>
-              <div class="spacer"></div>
-              <button id="btnClear" class="btn secondary">
-                <span class="icon" style="background-image:url('${iconClear}');"></span>
-                <span class="label">Clear</span>
-              </button>
-            </div>
-
             <div id="chat" class="chat" role="log" aria-live="polite"></div>
+
+            <div class="toolbar">
+              <div class="toolbar-row">
+                <button id="btnAnalyze" class="tool-btn">
+                  <span class="btn-icon"><img src="${icons.analyze}" alt="" /></span>
+                  <span class="btn-label">Analyze File</span>
+                </button>
+                <button id="btnAnalyzeSel" class="tool-btn">
+                  <span class="btn-icon"><img src="${icons.selection}" alt="" /></span>
+                  <span class="btn-label">Analyze Selection</span>
+                </button>
+              </div>
+              <div class="toolbar-row">
+                <button id="btnRefine" class="tool-btn">
+                  <span class="btn-icon"><img src="${icons.refine}" alt="" /></span>
+                  <span class="btn-label">Refine</span>
+                </button>
+                <button id="btnPreview" class="tool-btn">
+                  <span class="btn-icon"><img src="${icons.diagram}" alt="" /></span>
+                  <span class="btn-label">Preview Diagrams</span>
+                </button>
+              </div>
+              <div class="toolbar-row">
+                <button id="btnClear" class="tool-btn secondary">
+                  <span class="btn-icon"><img src="${icons.clear}" alt="" /></span>
+                  <span class="btn-label">Clear</span>
+                </button>
+              </div>
+            </div>
 
             <div class="composer">
               <textarea
                 id="input"
-                placeholder="Type your system description or STPA request here."></textarea>
-              <button id="btnSend" class="btn">
-                <span class="label">Send</span>
-              </button>
+                placeholder="Type your system description or STPA request here."
+              ></textarea>
+              <button id="btnSend" class="send-btn">Send</button>
             </div>
           </div>
           <script>${js}</script>

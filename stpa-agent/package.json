@@ -15,7 +15,6 @@
     "onCommand:stpa-agent.analyzeCurrentFile",
     "onCommand:stpa-agent.analyzeSelection",
     "onCommand:stpa-agent.refineAnalysis",
-    "onCommand:stpa-agent.exportMarkdown",
     "onCommand:stpa-agent.previewDiagrams",
     "onCommand:stpa-agent.smartEdit"
   ],
@@ -61,14 +60,6 @@
         "icon": {
           "light": "media/refine.svg",
           "dark": "media/refine.svg"
-        }
-      },
-      {
-        "command": "stpa-agent.exportMarkdown",
-        "title": "STPA Agent: Export Markdown Report",
-        "icon": {
-          "light": "media/export.svg",
-          "dark": "media/export.svg"
         }
       },
       {
