@@ -16,7 +16,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) { }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
@@ -477,10 +477,12 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
                 </button>
               </div>
               <div class="toolbar-row">
-                <button id="btnRefine" class="tool-btn">
-                  <span class="btn-icon"><img src="${icons.refine}" alt="" /></span>
-                  <span class="btn-label">Refine</span>
-                </button>
+                // <button id="btnRefine" class="tool-btn">
+                //   <span class="btn-icon"><img src="${icons.refine}" alt="" /></span>
+                //   <span class="btn-label">Refine</span>
+                // </button>
+                <button id="btnGuided">Guided STPA</button>
+
                 <button id="btnPreview" class="tool-btn">
                   <span class="btn-icon"><img src="${icons.diagram}" alt="" /></span>
                   <span class="btn-label">Preview Diagrams</span>

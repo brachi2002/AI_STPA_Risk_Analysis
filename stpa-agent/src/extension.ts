@@ -8,6 +8,8 @@ import OpenAI from 'openai';
 import * as path from 'path';
 import * as fs from 'fs';
 import dotenv from 'dotenv';
+import { startGuidedStpa } from './workflow';
+
 
 // UI: חלון צ'אט צדדי
 import { StpaChatViewProvider } from './chatView';
@@ -577,6 +579,14 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	const guidedCmd = vscode.commands.registerCommand('stpa-agent.guided', async () => {
+		const apiKey = process.env.OPENAI_API_KEY;
+		if (!apiKey) {
+			vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
+			return;
+		}
+		await startGuidedStpa(apiKey);
+	});
 	/** Refine Analysis */
 	const refineCmd = vscode.commands.registerCommand('stpa-agent.refineAnalysis', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
@@ -854,7 +864,8 @@ export function activate(context: vscode.ExtensionContext) {
 		previewDiagCmd,
 		smartEditCmd,
 		inlineDisp,
-		jsonWatcher
+		jsonWatcher,
+		guidedCmd
 
 	);
 }

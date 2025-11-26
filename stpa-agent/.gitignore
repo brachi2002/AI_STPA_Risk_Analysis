@@ -36,3 +36,4 @@ temp/
 # Build outputs
 out/
 *.js.map
+*.js

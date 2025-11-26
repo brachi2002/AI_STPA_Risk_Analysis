@@ -16,7 +16,8 @@
     "onCommand:stpa-agent.analyzeSelection",
     "onCommand:stpa-agent.refineAnalysis",
     "onCommand:stpa-agent.previewDiagrams",
-    "onCommand:stpa-agent.smartEdit"
+    "onCommand:stpa-agent.smartEdit",
+    "onCommand:stpa-agent.guided"
   ],
   "contributes": {
     "viewsContainers": {
@@ -38,6 +39,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "stpa-agent.guided",
+        "title": "STPA Agent: Guided STPA (Steps 1–4)",
+        "category": "STPA Agent"
+      },
       {
         "command": "stpa-agent.analyzeCurrentFile",
         "title": "STPA Agent: Analyze File",
