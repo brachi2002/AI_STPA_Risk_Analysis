@@ -1,13 +1,9 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
-type ChatMsg = { id: string; role: 'user' | 'assistant' | 'system'; text: string };
-
 type ToolbarIcons = {
   analyze: vscode.Uri;
   selection: vscode.Uri;
-  refine: vscode.Uri;
-  export: vscode.Uri;
   diagram: vscode.Uri;
   clear: vscode.Uri;
 };
@@ -16,108 +12,145 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
-  constructor(private readonly context: vscode.ExtensionContext) { }
+  constructor(private readonly context: vscode.ExtensionContext) {}
+
+  public sendToWebview(message: any) {
+    this._view?.webview.postMessage(message);
+  }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
     const webview = webviewView.webview;
     webview.options = { enableScripts: true };
 
-    // אייקונים מתיקיית media
     const mediaRoot = vscode.Uri.joinPath(this.context.extensionUri, 'media');
     const icons: ToolbarIcons = {
       analyze: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'analyze.svg')),
       selection: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'selection.svg')),
-      refine: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'refine.svg')),
-      export: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'export.svg')),
       diagram: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'diagram.svg')),
       clear: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'clear.svg')),
     };
 
     webview.html = this.getHtml(icons);
 
-    // קבלת הודעות מה-webview (כפתורים / צ׳אט)
     webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
         case 'analyzeFile':
           await vscode.commands.executeCommand('stpa-agent.analyzeCurrentFile');
           break;
+
         case 'analyzeSelection':
           await vscode.commands.executeCommand('stpa-agent.analyzeSelection');
           break;
-        case 'refine':
-          await vscode.commands.executeCommand('stpa-agent.refineAnalysis');
-          break;
-        case 'exportMd':
-          await vscode.commands.executeCommand('stpa-agent.exportMarkdown');
-          break;
+
         case 'previewDiagrams':
           await vscode.commands.executeCommand('stpa-agent.previewDiagrams');
           break;
-        case 'manualPrompt':
-          await this.runManualPrompt(msg.payload?.text ?? '');
+
+        case 'explainCurrentStep':
+          await vscode.commands.executeCommand('stpa-agent.guided.explainCurrentStep');
           break;
+
+        case 'guidedAction': {
+          const action = msg.payload?.action as string | undefined;
+          if (!action) return;
+
+          switch (action) {
+            case 'startStep1':
+              await vscode.commands.executeCommand('stpa-agent.guided.startStep1');
+              break;
+            case 'continueStep2':
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep2');
+              break;
+            case 'continueStep3':
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep3');
+              break;
+            case 'continueStep4':
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep4');
+              break;
+            case 'editCurrentStep':
+              await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
+              break;
+            case 'generateDiagrams':
+              await vscode.commands.executeCommand('stpa-agent.guided.generateDiagrams');
+              break;
+            case 'jumpToStep':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpToStep');
+              break;
+            default:
+              break;
+          }
+          break;
+        }
+
         case 'smartEdit': {
           try {
-            this.post({ type: 'busy', payload: true });
+            this.sendToWebview({ type: 'busy', payload: true });
+
             const res = await vscode.commands.executeCommand(
               'stpa-agent.smartEdit',
               msg.payload?.text
             );
+
             const text = Array.isArray(res) ? res.join('\n') : (res || 'Applied.');
-            this.post({ type: 'append', payload: { role: 'assistant', text } });
+            this.sendToWebview({ type: 'append', payload: { role: 'assistant', text } });
           } catch (e: any) {
-            this.post({
+            this.sendToWebview({
               type: 'append',
               payload: { role: 'assistant', text: `Error: ${e?.message || e}` },
             });
           } finally {
-            this.post({ type: 'busy', payload: false });
+            this.sendToWebview({ type: 'busy', payload: false });
           }
           break;
         }
-        case 'clear':
-          this.post({ type: 'reset' });
+
+        case 'manualPrompt':
+          await this.runManualPrompt(msg.payload?.text ?? '');
           break;
+
+        case 'clear':
+          this.sendToWebview({ type: 'reset' });
+          break;
+
         default:
           break;
       }
     });
   }
 
-  /** שיחה ידנית מול GPT – התשובה תחזור ל-webview כהודעת assistant */
   private async runManualPrompt(text: string) {
     if (!text.trim()) {
-      this.post({ type: 'toast', payload: 'נא להקליד הודעה.' });
+      this.sendToWebview({ type: 'toast', payload: 'נא להקליד הודעה.' });
       return;
     }
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      this.post({ type: 'toast', payload: 'Missing OPENAI_API_KEY' });
+      this.sendToWebview({ type: 'toast', payload: 'Missing OPENAI_API_KEY' });
       return;
     }
+
     try {
-      this.post({ type: 'busy', payload: true });
+      this.sendToWebview({ type: 'busy', payload: true });
+
       const openai = new OpenAI({ apiKey });
       const resp = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         temperature: 0.2,
         messages: [{ role: 'user', content: text }],
       });
+
       const content = resp.choices?.[0]?.message?.content?.trim() || '(no response)';
-      this.post({ type: 'append', payload: { role: 'assistant', text: content } });
+      this.sendToWebview({ type: 'append', payload: { role: 'assistant', text: content } });
     } catch (e: any) {
-      this.post({
+      this.sendToWebview({
         type: 'append',
         payload: { role: 'assistant', text: `Error: ${e?.message || e}` },
       });
     } finally {
-      this.post({ type: 'busy', payload: false });
+      this.sendToWebview({ type: 'busy', payload: false });
     }
-  }
-
-  private post(message: any) {
-    this._view?.webview.postMessage(message);
   }
 
   private getHtml(icons: ToolbarIcons): string {
@@ -133,7 +166,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         --input-bg: var(--vscode-input-background);
         --input-fg: var(--vscode-input-foreground);
         --input-border: var(--vscode-input-border);
-        --link: var(--vscode-textLink-foreground);
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; }
@@ -146,7 +178,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         font-size: 13px;
       }
 
-      /* שלושה אזורים: צ'אט (למעלה), כפתורים (באמצע), שורת כתיבה (למטה) */
       .container {
         display: grid;
         grid-template-rows: 1fr auto auto;
@@ -155,7 +186,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         padding: 10px;
       }
 
-      /* === CHAT === */
       .chat {
         border: 1px solid var(--border);
         border-radius: 10px;
@@ -195,30 +225,52 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         border-bottom-left-radius: 4px;
       }
 
-      .system {
-        justify-content: center;
-      }
+      .system { justify-content: center; }
       .system .bubble {
         background: transparent;
         color: var(--muted);
         border: 1px dashed var(--border);
       }
 
-      /* === TOOLBAR – כפתורים מתחת לצ'אט, במרכז === */
+      .action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 8px 0 14px 0;
+        justify-content: center;
+      }
+      .action-btn {
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        border: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .action-btn.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .action-btn:hover { background: var(--btn-bg-hover); }
+      .action-btn.secondary:hover { background: var(--vscode-editor-background); }
+
       .toolbar {
         display: flex;
         flex-direction: column;
         gap: 6px;
         align-items: center;
       }
-
       .toolbar-row {
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
         justify-content: center;
       }
-
       .tool-btn {
         display: inline-flex;
         align-items: center;
@@ -237,32 +289,16 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         white-space: nowrap;
       }
       .tool-btn:hover { background: var(--btn-bg-hover); }
-
       .tool-btn.secondary {
         background: transparent;
         color: var(--fg);
         border: 1px solid var(--border);
         font-weight: 500;
       }
-      .tool-btn.secondary:hover {
-        background: var(--vscode-editor-background);
-      }
+      .tool-btn.secondary:hover { background: var(--vscode-editor-background); }
 
-      .btn-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .btn-icon img {
-        width: 16px;
-        height: 16px;
-        display: block;
-      }
-      .btn-label {
-        line-height: 1;
-      }
+      .btn-icon img { width: 16px; height: 16px; }
 
-      /* === COMPOSER – האזור שכותבים בו (פשוט, כמו קודם) === */
       .composer {
         display: grid;
         grid-template-columns: 1fr auto;
@@ -280,12 +316,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         color: var(--input-fg);
         border: 1px solid var(--input-border);
       }
-
-      textarea:focus {
-        outline: none;
-        border-color: var(--btn-bg);
-      }
-
       .send-btn {
         background: var(--btn-bg);
         color: var(--btn-fg);
@@ -299,7 +329,16 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       }
       .send-btn:hover { background: var(--btn-bg-hover); }
 
-      .busy { opacity: 0.65; pointer-events: none; }
+      .busy textarea,
+      .busy button {
+        opacity: 0.99;
+      }
+      .busy textarea,
+      .busy .send-btn,
+      .busy .tool-btn,
+      .busy .action-btn {
+        pointer-events: none;
+      }
 
       .typing {
         display: inline-block;
@@ -311,91 +350,27 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         animation: blink 1s infinite steps(1,end);
       }
       @keyframes blink { 50% { opacity: 0; } }
-      a { color: var(--link); }
     `;
 
     const js = `
       const vscode = acquireVsCodeApi();
-
       const state = vscode.getState() || { messages: [] };
+
       const chat = document.getElementById('chat');
       const input = document.getElementById('input');
       const root = document.getElementById('root');
 
-      // רנדר ראשון של ההודעות
-      if (!state.messages || state.messages.length === 0) {
-        append('system', 'Welcome to the STPA Agent. How can I help you?', true);
-      } else {
-        (state.messages || []).forEach(m => append(m.role, m.text, false));
-      }
-      scrollToBottom();
+      let isBusy = false;
 
-      // כפתורים
-      document.getElementById('btnAnalyze').onclick = () => send('analyzeFile');
-      document.getElementById('btnAnalyzeSel').onclick = () => send('analyzeSelection');
-      document.getElementById('btnRefine').onclick = () => send('refine');
-      document.getElementById('btnPreview').onclick = () => send('previewDiagrams');
-      document.getElementById('btnClear').onclick = () => {
-        vscode.setState({ messages: [] });
-        chat.innerHTML = '';
-        send('clear');
-      };
+      const WELCOME_TEXT = 'Hi, I am your STPA Agent. I can guide you step-by-step according to the STPA Handbook.';
 
-      // שליחה ידנית
-      document.getElementById('btnSend').onclick = onSend;
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          onSend();
-        }
-      });
-
-      function onSend() {
-        const text = input.value.trim();
-        if (!text) return;
-        input.value = '';
-        append('user', text, true);
-
-        // זיהוי האם המשתמש מבקש לערוך את הקובץ (Smart Edit)
-        const wantsEdit = (() => {
-          const lower = text.toLowerCase();
-          return (
-            /(add|create|insert|append|augment|extend)/i.test(lower) ||
-            /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
-            /(hazard|loss|uca)/i.test(lower)
-          );
-        })();
-
-        showTyping();
-
-        if (wantsEdit) {
-          console.log('[ChatView] Smart edit trigger detected:', text);
-          send('smartEdit', { text });
-        } else {
-          send('manualPrompt', { text });
-        }
+      function persist(role, text) {
+        const messages = (vscode.getState()?.messages || []);
+        messages.push({ id: String(Date.now()), role, text });
+        vscode.setState({ messages });
       }
 
-      function send(type, payload) { vscode.postMessage({ type, payload }); }
-
-      // קבלת הודעות מה-extension
-      window.addEventListener('message', (event) => {
-        const msg = event.data;
-        if (msg.type === 'append') {
-          hideTyping();
-          append(msg.payload.role, msg.payload.text, true);
-        } else if (msg.type === 'busy') {
-          if (msg.payload) root.classList.add('busy'); else root.classList.remove('busy');
-        } else if (msg.type === 'toast') {
-          append('system', String(msg.payload), true);
-        } else if (msg.type === 'reset') {
-          chat.innerHTML = '';
-          vscode.setState({ messages: [] });
-        }
-      });
-
-      // UI helpers
-      function append(role, text, persist = true) {
+      function append(role, text, save = true) {
         const row = document.createElement('div');
         row.className = 'msg ' + role;
 
@@ -420,38 +395,233 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         chat.appendChild(row);
         scrollToBottom();
 
-        if (persist) {
-          const messages = (vscode.getState()?.messages || []);
-          messages.push({ id: String(Date.now()), role, text });
-          vscode.setState({ messages });
+        if (save) persist(role, text);
+      }
+
+      function renderActionButtons(groupId, buttons) {
+        const row = document.createElement('div');
+        row.className = 'action-row';
+        row.dataset.group = groupId;
+
+        buttons.forEach(btn => {
+          const b = document.createElement('button');
+          b.className = 'action-btn ' + (btn.secondary ? 'secondary' : '');
+          b.textContent = btn.label;
+          b.onclick = () => {
+            if (isBusy) return;
+            row.remove();
+            append('user', btn.label, true);
+            showTyping();
+            vscode.postMessage({ type: 'guidedAction', payload: { action: btn.action } });
+          };
+          row.appendChild(b);
+        });
+
+        chat.appendChild(row);
+        scrollToBottom();
+      }
+
+      function renderWelcomeButtonsOnly() {
+        // avoid duplicates
+        if (chat.querySelector('.action-row[data-group="welcome"]')) return;
+
+        renderActionButtons('welcome', [
+          { label: 'Start guided STPA (Step 1)', action: 'startStep1' },
+          { label: 'Jump to a specific step', action: 'jumpToStep', secondary: true }
+        ]);
+      }
+
+      function renderWelcome() {
+        // IMPORTANT: do NOT persist the welcome message, otherwise on reload it blocks buttons.
+        append('system', WELCOME_TEXT, false);
+        renderWelcomeButtonsOnly();
+      }
+
+      // initial render
+      if (!state.messages || state.messages.length === 0) {
+        renderWelcome();
+      } else {
+        (state.messages || []).forEach(m => append(m.role, m.text, false));
+
+        // If the state contains ONLY the welcome message (common after reload) → show the welcome buttons.
+        const onlyWelcome =
+          (state.messages.length === 1 &&
+           state.messages[0].role === 'system' &&
+           String(state.messages[0].text || '').includes('STPA Agent'));
+
+        if (onlyWelcome) {
+          renderWelcomeButtonsOnly();
+        }
+      }
+      scrollToBottom();
+
+      // toolbar
+      document.getElementById('btnAnalyze').onclick = () => {
+        if (isBusy) return;
+        showTyping();
+        vscode.postMessage({ type: 'analyzeFile' });
+      };
+      document.getElementById('btnAnalyzeSel').onclick = () => {
+        if (isBusy) return;
+        showTyping();
+        vscode.postMessage({ type: 'analyzeSelection' });
+      };
+      document.getElementById('btnPreview').onclick = () => {
+        if (isBusy) return;
+        showTyping();
+        vscode.postMessage({ type: 'previewDiagrams' });
+      };
+      document.getElementById('btnExplain').onclick = () => {
+        if (isBusy) return;
+        showTyping();
+        vscode.postMessage({ type: 'explainCurrentStep' });
+      };
+
+      document.getElementById('btnClear').onclick = () => {
+        vscode.setState({ messages: [] });
+        chat.innerHTML = '';
+        hideTyping();
+        vscode.postMessage({ type: 'clear' });
+        renderWelcome();
+      };
+
+      // send manual/smart edit
+      document.getElementById('btnSend').onclick = onSend;
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          onSend();
+        }
+      });
+
+      function onSend() {
+        if (isBusy) return;
+
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        append('user', text, true);
+
+        const wantsEdit = (() => {
+          const lower = text.toLowerCase();
+          return (
+            /(add|create|insert|append|augment|extend|remove|delete|update|change)/i.test(lower) ||
+            /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
+            /(hazard|loss|uca|constraint)/i.test(lower)
+          );
+        })();
+
+        showTyping();
+
+        if (wantsEdit) {
+          vscode.postMessage({ type: 'smartEdit', payload: { text } });
+        } else {
+          vscode.postMessage({ type: 'manualPrompt', payload: { text } });
         }
       }
 
-      // "הקלדה…" מדומה עד שמגיעה תשובה
+      // typing indicator
       let typingRow = null;
+
       function showTyping() {
-        hideTyping();
+        if (typingRow && typingRow.parentElement) return;
+
         typingRow = document.createElement('div');
         typingRow.className = 'msg assistant';
+
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         bubble.innerHTML = '<span class="typing"></span>';
+
         const label = document.createElement('div');
         label.className = 'role';
         label.textContent = 'STPA Agent';
+
         typingRow.appendChild(bubble);
         typingRow.appendChild(label);
+
         chat.appendChild(typingRow);
         scrollToBottom();
       }
+
       function hideTyping() {
-        if (typingRow && typingRow.parentElement) {
-          chat.removeChild(typingRow);
-        }
+        if (typingRow && typingRow.parentElement) typingRow.remove();
         typingRow = null;
       }
 
-      function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
+      function scrollToBottom() {
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      // receive from extension
+      window.addEventListener('message', (event) => {
+        const msg = event.data;
+
+        if (msg.type === 'append') {
+          hideTyping();
+          append(msg.payload.role, msg.payload.text, true);
+        }
+
+        if (msg.type === 'busy') {
+          isBusy = !!msg.payload;
+          if (isBusy) {
+            root.classList.add('busy');
+            showTyping();
+          } else {
+            root.classList.remove('busy');
+            setTimeout(() => {
+              if (!isBusy) hideTyping();
+            }, 150);
+          }
+        }
+
+        if (msg.type === 'toast') {
+          hideTyping();
+          append('system', String(msg.payload), true);
+        }
+
+        if (msg.type === 'reset') {
+          hideTyping();
+          chat.innerHTML = '';
+          vscode.setState({ messages: [] });
+          renderWelcome();
+        }
+
+        if (msg.type === 'guidedActions') {
+          hideTyping();
+
+          const stage = msg.payload?.stage;
+          if (!stage) return;
+
+          if (stage === 'afterStep1') {
+            renderActionButtons('afterStep1', [
+              { label: 'Approve Step 1 and continue to Step 2', action: 'continueStep2' },
+              { label: 'Edit Step 1', action: 'editCurrentStep', secondary: true }
+            ]);
+          }
+
+          if (stage === 'afterStep2') {
+            renderActionButtons('afterStep2', [
+              { label: 'Approve Step 2 and continue to Step 3', action: 'continueStep3' },
+              { label: 'Edit Step 2', action: 'editCurrentStep', secondary: true }
+            ]);
+          }
+
+          if (stage === 'afterStep3') {
+            renderActionButtons('afterStep3', [
+              { label: 'Approve Step 3 and continue to Step 4', action: 'continueStep4' },
+              { label: 'Edit Step 3', action: 'editCurrentStep', secondary: true }
+            ]);
+          }
+
+          if (stage === 'afterStep4') {
+            renderActionButtons('afterStep4', [
+              { label: 'Edit Step 4', action: 'editCurrentStep', secondary: true },
+              { label: 'Generate Diagrams', action: 'generateDiagrams' }
+            ]);
+          }
+        }
+      });
     `;
 
     return `
@@ -476,18 +646,18 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
                   <span class="btn-label">Analyze Selection</span>
                 </button>
               </div>
-              <div class="toolbar-row">
-                // <button id="btnRefine" class="tool-btn">
-                //   <span class="btn-icon"><img src="${icons.refine}" alt="" /></span>
-                //   <span class="btn-label">Refine</span>
-                // </button>
-                <button id="btnGuided">Guided STPA</button>
 
+              <div class="toolbar-row">
                 <button id="btnPreview" class="tool-btn">
                   <span class="btn-icon"><img src="${icons.diagram}" alt="" /></span>
                   <span class="btn-label">Preview Diagrams</span>
                 </button>
+
+                <button id="btnExplain" class="tool-btn secondary">
+                  <span class="btn-label">Explain current step</span>
+                </button>
               </div>
+
               <div class="toolbar-row">
                 <button id="btnClear" class="tool-btn secondary">
                   <span class="btn-icon"><img src="${icons.clear}" alt="" /></span>
@@ -497,10 +667,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
             </div>
 
             <div class="composer">
-              <textarea
-                id="input"
-                placeholder="Type your system description or STPA request here."
-              ></textarea>
+              <textarea id="input" placeholder="Type your system description or STPA request here."></textarea>
               <button id="btnSend" class="send-btn">Send</button>
             </div>
           </div>

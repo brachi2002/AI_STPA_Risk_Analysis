@@ -1,12 +1,6 @@
-// ----------------------------------------
-// STPA Guided Workflow
-// זרימה מונחית לפי STPA HANDBOOK – שלבים 1–4
-// + סינתזה סופית ל-JSON ודוח
-// ----------------------------------------
-
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
+import * as fs from 'fs';
 import OpenAI from 'openai';
 
 import { buildMarkdownTables } from './tables';
@@ -14,589 +8,537 @@ import { buildControlStructureMermaid, buildImpactGraphMermaid } from './diagram
 import { deriveControlStructFromText } from './csExtract';
 import type { SystemType, StpaResult, ControlStructInput } from './types';
 
-// --------- טיפוסים פנימיים ---------
+// -----------------------------------------------------
+// Types
+// -----------------------------------------------------
 
-type StpaPhase = 'system' | 'step1' | 'step2' | 'step3' | 'step4' | 'final';
+export type GuidedStep = 1 | 2 | 3 | 4;
 
 type ProjectInfo = {
-    dir: string;      // תיקיית הפרויקט המלאה
-    baseName: string; // שם בסיס לקבצים (ללא סיומת)
+  dir: string;
+  baseName: string;
 };
 
-interface GuidedSession {
-    project: ProjectInfo;
-    phase: StpaPhase;
-    systemText: string;
-    step1Text?: string;
-    step2Text?: string;
-    step3Text?: string;
-    step4Text?: string;
-}
+type GuidedSession = {
+  project: ProjectInfo;
+  systemText: string;
+  systemType: SystemType;
 
-let currentSession: GuidedSession | null = null;
+  currentStep: GuidedStep;
+  guidedFilePath: string;
 
-// --------- כלי עזר כלליים ---------
+  // store step texts for later export
+  stepText: Partial<Record<GuidedStep, string>>;
+
+  // keep parsed STPA backbone for diagrams/json
+  losses: string[];
+  hazards: string[];
+  ucas: string[];
+};
+
+// -----------------------------------------------------
+// Session (singleton for now)
+// -----------------------------------------------------
+
+let session: GuidedSession | null = null;
+
+// -----------------------------------------------------
+// Helpers
+// -----------------------------------------------------
 
 function detectSystemType(text: string): SystemType {
-    const lower = text.toLowerCase();
-    if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower)) return 'medical';
-    if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower)) return 'drone';
-    if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower)) return 'automotive';
-    return 'generic';
+  const lower = text.toLowerCase();
+  if (/(patient|drug|dose|dosing|infusion|hospital|clinic|therapy|medical|device|monitoring)/.test(lower)) return 'medical';
+  if (/(drone|uav|flight|gps|gnss|altitude|aircraft|autopilot|waypoint|gimbal)/.test(lower)) return 'drone';
+  if (/(vehicle|car|brake|steer|steering|engine|automotive|airbag|lane|ecu|can bus|adas)/.test(lower)) return 'automotive';
+  return 'generic';
 }
 
-/** הופך שם חופשי ל-slug נחמד לתיקייה/קובץ */
 function slugify(name: string): string {
-    return (
-        name
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9א-ת]+/gi, '-')
-            .replace(/^-+|-+$/g, '') || 'stpa-project'
-    );
+  return (
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9א-ת]+/gi, '-')
+      .replace(/^-+|-+$/g, '') || 'stpa-project'
+  );
 }
 
-/** יצירת תיקיית פרויקט תחת stpa_results ושם בסיס */
 async function prepareProjectFolder(suggested?: string): Promise<ProjectInfo | null> {
-    const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!ws) {
-        vscode.window.showErrorMessage('No workspace is open. Open a folder first.');
-        return null;
-    }
+  const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!ws) {
+    vscode.window.showErrorMessage('No workspace is open. Open a folder first.');
+    return null;
+  }
 
-    const input = await vscode.window.showInputBox({
-        title: 'STPA – Project name',
-        prompt: 'איך לקרוא למערכת / לניתוח? (ישמש לתיקייה ולקבצים)',
-        value: suggested || 'my-system',
-        ignoreFocusOut: true,
-    });
+  const input = await vscode.window.showInputBox({
+    title: 'STPA – Project name',
+    prompt: 'איך לקרוא לניתוח / למערכת? (ישמש לתיקייה ולקבצים)',
+    value: suggested || 'my-system',
+    ignoreFocusOut: true,
+  });
 
-    if (!input) {
-        vscode.window.showInformationMessage('Guided STPA canceled – no project name.');
-        return null;
-    }
+  if (!input) {
+    vscode.window.showInformationMessage('Analysis canceled – no project name provided.');
+    return null;
+  }
 
-    const baseName = slugify(input);
-    const rootDir = path.join(ws, 'stpa_results');
-    if (!fs.existsSync(rootDir)) fs.mkdirSync(rootDir, { recursive: true });
+  const baseName = slugify(input);
+  const rootDir = path.join(ws, 'stpa_results');
+  if (!fs.existsSync(rootDir)) fs.mkdirSync(rootDir, { recursive: true });
 
-    const dir = path.join(rootDir, baseName);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const dir = path.join(rootDir, baseName);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-    return { dir, baseName };
+  return { dir, baseName };
 }
 
-/** פרסר לפורמט [LOSSES]/[HAZARDS]/[UCAS] */
-function parseStpaOutput(text: string): StpaResult {
-    const grab = (section: string) => {
-        const rx = new RegExp(`\\[${section}\\]([\\s\\S]*?)(\\n\\[|$)`, 'i');
-        const m = text.match(rx);
-        if (!m) return [];
-        return m[1]
-            .split(/\r?\n/)
-            .map((s) => s.trim())
-            .filter((s) => s && !/^\[.*\]$/.test(s));
-    };
-    return {
-        losses: grab('LOSSES'),
-        hazards: grab('HAZARDS'),
-        ucas: grab('UCAS'),
-        raw: text,
-    };
+function guidedFileName(project: ProjectInfo) {
+  return path.join(project.dir, `${project.baseName}_guided.md`);
 }
 
-/** שמירת JSON לקובץ projectName_stpa.json */
-async function saveResultAsJSON(result: StpaResult, project: ProjectInfo) {
-    const file = path.join(project.dir, `${project.baseName}_stpa.json`);
-    fs.writeFileSync(
-        file,
-        JSON.stringify(
-            {
-                losses: result.losses,
-                hazards: result.hazards,
-                ucas: result.ucas,
-            },
-            null,
-            2
-        ),
-        'utf-8'
-    );
-    vscode.window.showInformationMessage(`STPA JSON saved: ${file}`);
+function ensureFile(p: string) {
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
 }
 
-/** בניית דוח Markdown מלא (טבלאות + דיאגרמות + מקור) */
-function buildMarkdownReport(ctx: {
-    text: string;
-    systemType: SystemType;
-    result: StpaResult;
-    csMermaid?: string;
-    impactMermaid?: string;
-}): string {
-    const when = new Date().toISOString();
-    const tables = buildMarkdownTables(ctx.result);
-    return [
-        '# STPA Report',
-        '',
-        `- **Generated:** ${when}`,
-        `- **Domain:** ${ctx.systemType}`,
-        '',
-        '---',
-        '',
-        '## Analysis Tables',
-        tables,
-        '---',
-        '',
-        '## Diagrams',
-        '',
-        '### Control Structure',
-        ctx.csMermaid || '_No control structure found._',
-        '',
-        '### UCA → Hazard → Loss',
-        ctx.impactMermaid || '_No relations found._',
-        '',
-        '---',
-        '## Raw STPA Output',
-        '```',
-        ctx.result.raw.trim(),
-        '```',
-        '',
-        '## Source System Text',
-        '```',
-        ctx.text.trim(),
-        '```',
-        '',
-    ].join('\n');
+function appendToFile(p: string, content: string) {
+  ensureFile(p);
+  const prev = fs.readFileSync(p, 'utf-8');
+  const next = prev.trimEnd() + '\n\n' + content.trim() + '\n';
+  fs.writeFileSync(p, next, 'utf-8');
 }
 
-/** שמירת דוח Markdown לקובץ projectName_report.md */
-async function saveMarkdownReport(md: string, project: ProjectInfo): Promise<string | null> {
-    const file = path.join(project.dir, `${project.baseName}_report.md`);
-    fs.writeFileSync(file, md, 'utf-8');
-    vscode.window.showInformationMessage(`Markdown report saved: ${file}`);
-    return file;
+function writeFile(p: string, content: string) {
+  fs.writeFileSync(p, content, 'utf-8');
 }
 
-// --------- קריאות ל-OpenAI ----------
+// basic parser for losses/hazards/ucas out of step outputs
+function extractLinesByPrefix(lines: string[], prefix: RegExp): string[] {
+  return lines.filter(l => prefix.test(l.trim()));
+}
+
+function mergeUnique(base: string[], add: string[]) {
+  const set = new Set(base);
+  for (const a of add) set.add(a);
+  return Array.from(set);
+}
+
+// -----------------------------------------------------
+// Prompts (handbook-oriented)
+// -----------------------------------------------------
+
+function buildStep1Prompt(systemText: string, systemType: SystemType): string {
+  return [
+    'You are an expert STPA analyst.',
+    'Perform STPA Step 1 according to the STPA Handbook.',
+    'Step 1 goal: define the purpose of the analysis.',
+    'Include the following sub-parts:',
+    '1) Identify losses (L1…).',
+    '2) Identify system-level hazards (H1…) and map each to losses.',
+    '3) Identify system-level safety constraints (SC1…).',
+    '4) Refine hazards if needed.',
+    '',
+    'Output format MUST be exactly:',
+    '[LOSSES]',
+    'L1: ...',
+    'L2: ...',
+    '...',
+    '',
+    '[HAZARDS]',
+    'H1: ... (related: L1, L2)',
+    'H2: ...',
+    '...',
+    '',
+    '[CONSTRAINTS]',
+    'SC1: ... (related: H1)',
+    'SC2: ...',
+    '...',
+    '',
+    '[SUMMARY_TABLE]',
+    'Provide a concise markdown table summarizing Losses, Hazards, Constraints.',
+    '',
+    `Domain hints: ${systemType}.`,
+    '',
+    '--- SYSTEM TEXT START ---',
+    systemText,
+    '--- SYSTEM TEXT END ---',
+  ].join('\n');
+}
+
+function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text: string): string {
+  return [
+    'You are an expert STPA analyst.',
+    'Perform STPA Step 2 according to the STPA Handbook.',
+    'Step 2 goal: model the hierarchical control structure.',
+    'Derive controllers, controlled processes, actuators, sensors, human operators, and relevant interfaces.',
+    '',
+    'Use the prior Step 1 results to stay consistent:',
+    '--- STEP 1 START ---',
+    step1Text,
+    '--- STEP 1 END ---',
+    '',
+    'Output format MUST be exactly:',
+    '[CONTROL_STRUCTURE_TEXT]',
+    'Provide a concise textual description of the control structure.',
+    '',
+    '[COMPONENTS]',
+    '- Controllers: ...',
+    '- Actuators: ...',
+    '- Sensors: ...',
+    '- Human Operators: ...',
+    '- Controlled Processes: ...',
+    '- External Systems/Interfaces: ...',
+    '',
+    '[SUMMARY_TABLE]',
+    'Provide a concise markdown table listing the components and roles.',
+    '',
+    `Domain hints: ${systemType}.`,
+    '',
+    '--- SYSTEM TEXT START ---',
+    systemText,
+    '--- SYSTEM TEXT END ---',
+  ].join('\n');
+}
+
+function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string): string {
+  return [
+    'You are an expert STPA analyst.',
+    'Perform STPA Step 3 according to the STPA Handbook.',
+    'Step 3 goal: identify Unsafe Control Actions (UCAs).',
+    'Define UCAs in four categories when relevant:',
+    '1) Not providing a control action when needed',
+    '2) Providing an unsafe control action',
+    '3) Providing the action too early/too late/out of order',
+    '4) Stopping too soon/applying too long',
+    '',
+    'Use prior steps for consistency:',
+    '--- STEP 1 START ---',
+    step1Text,
+    '--- STEP 1 END ---',
+    '',
+    '--- STEP 2 START ---',
+    step2Text,
+    '--- STEP 2 END ---',
+    '',
+    'Output format MUST be exactly:',
+    '[UCAS]',
+    'UCA1: ... (control action: ... ; context: ... ; related: H1)',
+    'UCA2: ...',
+    '...',
+    '',
+    '[SUMMARY_TABLE]',
+    'Provide a concise markdown table mapping UCA → Hazard → Loss.',
+    '',
+    `Domain hints: ${systemType}.`,
+    '',
+    '--- SYSTEM TEXT START ---',
+    systemText,
+    '--- SYSTEM TEXT END ---',
+  ].join('\n');
+}
+
+function buildStep4Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string, step3Text: string): string {
+  return [
+    'You are an expert STPA analyst.',
+    'Perform STPA Step 4 according to the STPA Handbook.',
+    'Step 4 goal: identify loss scenarios (causal factors).',
+    'Each scenario should explain how specific causal factors can lead to UCAs and hazards.',
+    '',
+    'Use prior steps for consistency:',
+    '--- STEP 1 START ---',
+    step1Text,
+    '--- STEP 1 END ---',
+    '',
+    '--- STEP 2 START ---',
+    step2Text,
+    '--- STEP 2 END ---',
+    '',
+    '--- STEP 3 START ---',
+    step3Text,
+    '--- STEP 3 END ---',
+    '',
+    'Output format MUST be exactly:',
+    '[LOSS_SCENARIOS]',
+    'LS1: ... (related: UCA1, H1)',
+    'LS2: ...',
+    '...',
+    '',
+    '[SUMMARY_TABLE]',
+    'Provide a concise markdown table mapping Scenario → UCA → Hazard → Loss.',
+    '',
+    `Domain hints: ${systemType}.`,
+    '',
+    '--- SYSTEM TEXT START ---',
+    systemText,
+    '--- SYSTEM TEXT END ---',
+  ].join('\n');
+}
+
+// -----------------------------------------------------
+// Model call
+// -----------------------------------------------------
 
 async function callLLM(apiKey: string, prompt: string): Promise<string> {
-    const openai = new OpenAI({ apiKey });
-    const resp = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.2,
-        messages: [{ role: 'user', content: prompt }],
-    });
-    return resp.choices?.[0]?.message?.content?.trim() || '';
+  const openai = new OpenAI({ apiKey });
+  const resp = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0.2,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return resp.choices?.[0]?.message?.content?.trim() ?? '';
 }
 
-// --------- שלבי STPA (1–4) ----------
+// -----------------------------------------------------
+// Public API used by extension/chat
+// -----------------------------------------------------
 
-async function runStep1(apiKey: string): Promise<void> {
-    if (!currentSession) return;
-    const { project, systemText } = currentSession;
-
-    const prompt = [
-        'do STPA Step 1 Analysis for the system described below According to the STPA HANDBOOK.',
-        'On page 15 it says the first step in applying STPA is to define the purpose of the analysis.',
-        'Defining the purpose of the analysis has four parts:',
-        '1. Identify losses',
-        '2. Identify system-level hazards',
-        '3. Identify system-level constraints',
-        '4. Refine hazards',
-        '',
-        'Add a summary table at the end.',
-        '',
-        '--- SYSTEM DESCRIPTION START ---',
-        systemText,
-        '--- SYSTEM DESCRIPTION END ---',
-    ].join('\n');
-
-    let stepText = await callLLM(apiKey, prompt);
-    const file = path.join(project.dir, `${project.baseName}_step1.md`);
-    fs.writeFileSync(file, stepText, 'utf-8');
-
-    const doc = await vscode.workspace.openTextDocument(file);
-    await vscode.window.showTextDocument(doc);
-
-    while (true) {
-        const choice = await vscode.window.showInformationMessage(
-            'STPA Step 1 completed. How to continue?',
-            'Approve Step 1',
-            'Adjust with AI based on my comments',
-            'Cancel guided STPA'
-        );
-
-        if (!choice || choice === 'Cancel guided STPA') {
-            vscode.window.showInformationMessage('Guided STPA canceled at Step 1.');
-            currentSession = null;
-            return;
-        }
-
-        if (choice === 'Approve Step 1') {
-            currentSession.step1Text = stepText;
-            currentSession.phase = 'step2';
-            await runStep2(apiKey);
-            return;
-        }
-
-        // Adjust with comments
-        const comment = await vscode.window.showInputBox({
-            title: 'Step 1 – comments',
-            prompt: 'מה תרצי לתקן/להדגיש? (אפשר בעברית, ההנחיה תתורגם במודל)',
-            ignoreFocusOut: true,
-        });
-        if (!comment) continue;
-
-        const refinePrompt = [
-            'You are revising an STPA Step 1 result according to user comments.',
-            'User comments:',
-            comment,
-            '',
-            'Original Step 1 result:',
-            stepText,
-            '',
-            'Rewrite the Step 1 result so that it matches the user comments.',
-            'Keep the structure: losses, system-level hazards, system-level constraints, refined hazards, and a summary table.',
-        ].join('\n');
-
-        stepText = await callLLM(apiKey, refinePrompt);
-        fs.writeFileSync(file, stepText, 'utf-8');
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
-    }
+export function getGuidedSession() {
+  return session;
 }
 
-async function runStep2(apiKey: string): Promise<void> {
-    if (!currentSession) return;
-    const { project, systemText, step1Text } = currentSession;
+export async function startGuidedStep1(apiKey: string) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showInformationMessage('Open the system description file first.');
+    return;
+  }
 
-    const prompt = [
-        'do step 2 of STPA for the system According to the STPA HANDBOOK.',
-        'Note that on page 22 it says "Modeling the control structure The next step in STPA is to model the hierarchical control structure, as Figure 2.5 shows."',
-        '',
-        'Add a summary table at the end.',
-        '',
-        'Use the following system description and Step 1 result as context.',
-        '--- SYSTEM DESCRIPTION ---',
-        systemText,
-        '--- STEP 1 ---',
-        step1Text || '',
-        '--- END ---',
-    ].join('\n');
+  const systemText = editor.document.getText().trim();
+  if (!systemText) {
+    vscode.window.showInformationMessage('System description file is empty.');
+    return;
+  }
 
-    let stepText = await callLLM(apiKey, prompt);
-    const file = path.join(project.dir, `${project.baseName}_step2.md`);
-    fs.writeFileSync(file, stepText, 'utf-8');
+  const suggestedName = path.basename(editor.document.fileName, path.extname(editor.document.fileName));
+  const project = await prepareProjectFolder(suggestedName);
+  if (!project) return;
 
-    const doc = await vscode.workspace.openTextDocument(file);
-    await vscode.window.showTextDocument(doc);
+  const systemType = detectSystemType(systemText);
 
-    while (true) {
-        const choice = await vscode.window.showInformationMessage(
-            'STPA Step 2 completed. How to continue?',
-            'Approve Step 2',
-            'Adjust with AI based on my comments',
-            'Cancel guided STPA'
-        );
+  const guidedPath = guidedFileName(project);
+  ensureFile(guidedPath);
 
-        if (!choice || choice === 'Cancel guided STPA') {
-            vscode.window.showInformationMessage('Guided STPA canceled at Step 2.');
-            currentSession = null;
-            return;
-        }
+  session = {
+    project,
+    systemText,
+    systemType,
+    currentStep: 1,
+    guidedFilePath: guidedPath,
+    stepText: {},
+    losses: [],
+    hazards: [],
+    ucas: [],
+  };
 
-        if (choice === 'Approve Step 2') {
-            currentSession.step2Text = stepText;
-            currentSession.phase = 'step3';
-            await runStep3(apiKey);
-            return;
-        }
+  const prompt = buildStep1Prompt(systemText, systemType);
+  const step1Text = await callLLM(apiKey, prompt);
 
-        const comment = await vscode.window.showInputBox({
-            title: 'Step 2 – comments',
-            prompt: 'מה תרצי לתקן/להדגיש בשלב 2?',
-            ignoreFocusOut: true,
-        });
-        if (!comment) continue;
+  session.stepText[1] = step1Text;
 
-        const refinePrompt = [
-            'You are revising an STPA Step 2 result (control structure modeling) according to user comments.',
-            'User comments:',
-            comment,
-            '',
-            'Original Step 2 result:',
-            stepText,
-            '',
-            'Rewrite the Step 2 result so that it matches the user comments.',
-            'Keep the structure clear and keep the summary table.',
-        ].join('\n');
+  // parse backbone items for later diagrams/json
+  const lines = step1Text.split(/\r?\n/);
+  const losses = extractLinesByPrefix(lines, /^L\d+\s*:/i);
+  const hazards = extractLinesByPrefix(lines, /^H\d+\s*:/i);
 
-        stepText = await callLLM(apiKey, refinePrompt);
-        fs.writeFileSync(file, stepText, 'utf-8');
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
-    }
+  session.losses = mergeUnique(session.losses, losses);
+  session.hazards = mergeUnique(session.hazards, hazards);
+
+  // write guided file with header + step1
+  writeFile(
+    guidedPath,
+    [
+      `# Guided STPA Analysis`,
+      ``,
+      `- Project: ${project.baseName}`,
+      `- Domain: ${systemType}`,
+      `- Generated: ${new Date().toISOString()}`,
+      ``,
+      `---`,
+      ``,
+      `## Step 1 — Define the purpose of the analysis`,
+      step1Text,
+    ].join('\n')
+  );
+
+  const doc = await vscode.workspace.openTextDocument(guidedPath);
+  await vscode.window.showTextDocument(doc, { preview: false });
+
+  vscode.commands.executeCommand('stpa-agent.guided.ui.showAfterStep', 1);
 }
 
-async function runStep3(apiKey: string): Promise<void> {
-    if (!currentSession) return;
-    const { project, systemText, step1Text, step2Text } = currentSession;
+export async function continueToNextStep(apiKey: string) {
+  if (!session) {
+    vscode.window.showInformationMessage('No guided session found. Start Step 1 first.');
+    return;
+  }
 
-    const prompt = [
-        'do step 3 of STPA for the system According to the STPA HANDBOOK.',
-        'Note that on page 35 it says "3. Identify Unsafe Control Actions',
-        'Definition: An Unsafe Control Action (UCA) is a control action that, in a particular context and worst-case environment, will lead to a hazard"',
-        '',
-        'Add a summary table at the end.',
-        '',
-        'Use the system description, Step 1 and Step 2 as context.',
-        '--- SYSTEM DESCRIPTION ---',
-        systemText,
-        '--- STEP 1 ---',
-        step1Text || '',
-        '--- STEP 2 ---',
-        step2Text || '',
-        '--- END ---',
-    ].join('\n');
+  const nextStep = (session.currentStep + 1) as GuidedStep;
+  if (nextStep > 4) {
+    vscode.window.showInformationMessage('Already completed Step 4.');
+    return;
+  }
 
-    let stepText = await callLLM(apiKey, prompt);
-    const file = path.join(project.dir, `${project.baseName}_step3.md`);
-    fs.writeFileSync(file, stepText, 'utf-8');
-
-    const doc = await vscode.workspace.openTextDocument(file);
-    await vscode.window.showTextDocument(doc);
-
-    while (true) {
-        const choice = await vscode.window.showInformationMessage(
-            'STPA Step 3 completed. How to continue?',
-            'Approve Step 3',
-            'Adjust with AI based on my comments',
-            'Cancel guided STPA'
-        );
-
-        if (!choice || choice === 'Cancel guided STPA') {
-            vscode.window.showInformationMessage('Guided STPA canceled at Step 3.');
-            currentSession = null;
-            return;
-        }
-
-        if (choice === 'Approve Step 3') {
-            currentSession.step3Text = stepText;
-            currentSession.phase = 'step4';
-            await runStep4(apiKey);
-            return;
-        }
-
-        const comment = await vscode.window.showInputBox({
-            title: 'Step 3 – comments',
-            prompt: 'מה תרצי לתקן/להדגיש בשלב 3 (UCAs)?',
-            ignoreFocusOut: true,
-        });
-        if (!comment) continue;
-
-        const refinePrompt = [
-            'You are revising an STPA Step 3 result (Unsafe Control Actions) according to user comments.',
-            'User comments:',
-            comment,
-            '',
-            'Original Step 3 result:',
-            stepText,
-            '',
-            'Rewrite the Step 3 result so that it matches the user comments.',
-            'Keep the UCAs clear and keep the summary table.',
-        ].join('\n');
-
-        stepText = await callLLM(apiKey, refinePrompt);
-        fs.writeFileSync(file, stepText, 'utf-8');
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
-    }
+  await runStep(apiKey, nextStep);
 }
 
-async function runStep4(apiKey: string): Promise<void> {
-    if (!currentSession) return;
-    const { project, systemText, step1Text, step2Text, step3Text } = currentSession;
+export async function runStep(apiKey: string, step: GuidedStep) {
+  if (!session) {
+    vscode.window.showInformationMessage('No guided session found.');
+    return;
+  }
 
-    const prompt = [
-        'do step 4 of STPA for the system According to the STPA HANDBOOK.',
-        'Note that on page 42 it says "4. Identify loss scenarios',
-        'Definition: A loss scenario describes the causal factors that can lead to the unsafe control actions and to hazards."',
-        '',
-        'Add a summary table at the end.',
-        '',
-        'Use the system description and the results of Steps 1–3 as context.',
-        '--- SYSTEM DESCRIPTION ---',
-        systemText,
-        '--- STEP 1 ---',
-        step1Text || '',
-        '--- STEP 2 ---',
-        step2Text || '',
-        '--- STEP 3 ---',
-        step3Text || '',
-        '--- END ---',
-    ].join('\n');
+  const { systemText, systemType } = session;
 
-    let stepText = await callLLM(apiKey, prompt);
-    const file = path.join(project.dir, `${project.baseName}_step4.md`);
-    fs.writeFileSync(file, stepText, 'utf-8');
-
-    const doc = await vscode.workspace.openTextDocument(file);
-    await vscode.window.showTextDocument(doc);
-
-    while (true) {
-        const choice = await vscode.window.showInformationMessage(
-            'STPA Step 4 completed. How to continue?',
-            'Approve Step 4 and generate final STPA JSON+report',
-            'Adjust with AI based on my comments',
-            'Cancel guided STPA'
-        );
-
-        if (!choice || choice === 'Cancel guided STPA') {
-            vscode.window.showInformationMessage('Guided STPA canceled at Step 4.');
-            currentSession = null;
-            return;
-        }
-
-        if (choice === 'Approve Step 4 and generate final STPA JSON+report') {
-            currentSession.step4Text = stepText;
-            currentSession.phase = 'final';
-            await runFinalSynthesis(apiKey);
-            return;
-        }
-
-        const comment = await vscode.window.showInputBox({
-            title: 'Step 4 – comments',
-            prompt: 'מה תרצי לתקן/להדגיש בשלב 4 (loss scenarios)?',
-            ignoreFocusOut: true,
-        });
-        if (!comment) continue;
-
-        const refinePrompt = [
-            'You are revising an STPA Step 4 result (loss scenarios) according to user comments.',
-            'User comments:',
-            comment,
-            '',
-            'Original Step 4 result:',
-            stepText,
-            '',
-            'Rewrite the Step 4 result so that it matches the user comments.',
-            'Keep the loss scenarios structured and keep the summary table.',
-        ].join('\n');
-
-        stepText = await callLLM(apiKey, refinePrompt);
-        fs.writeFileSync(file, stepText, 'utf-8');
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
+  let prompt = '';
+  if (step === 2) {
+    if (!session.stepText[1]) {
+      vscode.window.showErrorMessage('Missing Step 1 content.');
+      return;
     }
+    prompt = buildStep2Prompt(systemText, systemType, session.stepText[1]!);
+  }
+  if (step === 3) {
+    if (!session.stepText[1] || !session.stepText[2]) {
+      vscode.window.showErrorMessage('Missing Step 1/2 content.');
+      return;
+    }
+    prompt = buildStep3Prompt(systemText, systemType, session.stepText[1]!, session.stepText[2]!);
+  }
+  if (step === 4) {
+    if (!session.stepText[1] || !session.stepText[2] || !session.stepText[3]) {
+      vscode.window.showErrorMessage('Missing Step 1/2/3 content.');
+      return;
+    }
+    prompt = buildStep4Prompt(systemText, systemType, session.stepText[1]!, session.stepText[2]!, session.stepText[3]!);
+  }
+
+  const stepText = await callLLM(apiKey, prompt);
+  session.stepText[step] = stepText;
+  session.currentStep = step;
+
+  // update backbone stores
+  const lines = stepText.split(/\r?\n/);
+  if (step === 3) {
+    const ucas = extractLinesByPrefix(lines, /^UCA\d+\s*:/i);
+    session.ucas = mergeUnique(session.ucas, ucas);
+  }
+  if (step === 2) {
+    // no backbone extraction needed here
+  }
+  if (step === 4) {
+    // scenarios not needed for diagrams builder right now
+  }
+
+  appendToFile(
+    session.guidedFilePath,
+    [
+      `---`,
+      ``,
+      `## Step ${step} — ${step === 2 ? 'Model the control structure' : step === 3 ? 'Identify Unsafe Control Actions' : 'Identify loss scenarios'}`,
+      stepText,
+    ].join('\n')
+  );
+
+  const doc = await vscode.workspace.openTextDocument(session.guidedFilePath);
+  await vscode.window.showTextDocument(doc, { preview: false });
+
+  vscode.commands.executeCommand('stpa-agent.guided.ui.showAfterStep', step);
 }
 
-// --------- סינתזה סופית ל-JSON + דוח + דיאגרמות ----------
-
-async function runFinalSynthesis(apiKey: string): Promise<void> {
-    if (!currentSession) return;
-    const { project, systemText, step1Text, step2Text, step3Text, step4Text } = currentSession;
-
-    const synthPrompt = [
-        'You are an expert STPA analyst.',
-        'Using the following STPA Step 1–4 results, produce a consolidated STPA summary',
-        'in this exact format:',
-        '',
-        '[LOSSES]',
-        'L1: ...',
-        '...',
-        '',
-        '[HAZARDS]',
-        'H1: ... (related: L1, L2)',
-        '...',
-        '',
-        '[UCAS]',
-        'UCA1: ... (control loop: ... ; related: H1, H2)',
-        '...',
-        '',
-        '--- SYSTEM DESCRIPTION ---',
-        systemText,
-        '--- STEP 1 ---',
-        step1Text || '',
-        '--- STEP 2 ---',
-        step2Text || '',
-        '--- STEP 3 ---',
-        step3Text || '',
-        '--- STEP 4 ---',
-        step4Text || '',
-    ].join('\n');
-
-    const content = await callLLM(apiKey, synthPrompt);
-    const result = parseStpaOutput(content);
-
-    // JSON
-    await saveResultAsJSON(result, project);
-
-    // דיאגרמות
-    const systemType = detectSystemType(systemText);
-    const cs: ControlStructInput = deriveControlStructFromText(systemText);
-    const csMermaid = buildControlStructureMermaid(cs);
-    const impactMermaid = buildImpactGraphMermaid(result);
-
-    const reportMd = buildMarkdownReport({
-        text: systemText,
-        systemType,
-        result,
-        csMermaid,
-        impactMermaid,
-    });
-    await saveMarkdownReport(reportMd, project);
-
-    vscode.window.showInformationMessage(
-        `Guided STPA finished. Created Step1–4, JSON and report under: ${project.dir}`
-    );
-
-    // אופציונלי: לפתוח את הדוח
-    const open = await vscode.window.showInformationMessage('Open final STPA report?', 'Open');
-    if (open === 'Open') {
-        const reportFile = path.join(project.dir, `${project.baseName}_report.md`);
-        const doc = await vscode.workspace.openTextDocument(reportFile);
-        await vscode.window.showTextDocument(doc);
-    }
-
-    currentSession = null;
+export async function openGuidedFileForEdit() {
+  if (!session) {
+    vscode.window.showInformationMessage('No guided session found.');
+    return;
+  }
+  const doc = await vscode.workspace.openTextDocument(session.guidedFilePath);
+  await vscode.window.showTextDocument(doc, { preview: false });
 }
 
-// --------- נקודת כניסה חיצונית להרחבה ----------
+export async function generateDiagramsAndExports() {
+  if (!session) {
+    vscode.window.showInformationMessage('No guided session found.');
+    return;
+  }
+  if (session.currentStep !== 4) {
+    vscode.window.showInformationMessage('Generate diagrams is available after Step 4.');
+    return;
+  }
 
-export async function startGuidedStpa(apiKey: string) {
-    if (!apiKey) {
-        vscode.window.showErrorMessage('Missing OPENAI_API_KEY.');
-        return;
-    }
+  const { project, systemText } = session;
 
-    const editor = vscode.window.activeTextEditor;
-    let systemText = editor?.document.getText().trim() || '';
+  // Build a minimal StpaResult from collected backbone
+  const result: StpaResult = {
+    losses: session.losses,
+    hazards: session.hazards,
+    ucas: session.ucas,
+    raw: [
+      '[LOSSES]',
+      ...session.losses,
+      '',
+      '[HAZARDS]',
+      ...session.hazards,
+      '',
+      '[UCAS]',
+      ...session.ucas,
+    ].join('\n'),
+  };
 
-    if (!systemText) {
-        const fromUser = await vscode.window.showInputBox({
-            title: 'System description',
-            prompt: 'תאר/י את המערכת לניתוח STPA (system-level description)',
-            ignoreFocusOut: true,
-        });
-        if (!fromUser) {
-            vscode.window.showInformationMessage('Guided STPA canceled – no system description.');
-            return;
-        }
-        systemText = fromUser;
-    }
+  // Control Structure + Impact graph based on result
+  const cs: ControlStructInput = deriveControlStructFromText(systemText);
+  const csMermaid = buildControlStructureMermaid(cs);
+  const impactMermaid = buildImpactGraphMermaid(result);
 
-    const suggestedName = editor?.document.fileName
-        ? path.basename(editor.document.fileName, path.extname(editor.document.fileName))
-        : 'my-system';
+  // Save .mmd
+  const clean = (s: string) =>
+    s.replace(/^\s*```mermaid\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    const project = await prepareProjectFolder(suggestedName);
-    if (!project) return;
+  writeFile(path.join(project.dir, `${project.baseName}_cs.mmd`), clean(csMermaid));
+  writeFile(path.join(project.dir, `${project.baseName}_impact.mmd`), clean(impactMermaid));
 
-    // שמירת system.md
-    const systemFile = path.join(project.dir, `${project.baseName}_system.md`);
-    fs.writeFileSync(systemFile, systemText, 'utf-8');
+  // Save JSON
+  writeFile(
+    path.join(project.dir, `${project.baseName}_stpa.json`),
+    JSON.stringify({ losses: result.losses, hazards: result.hazards, ucas: result.ucas }, null, 2)
+  );
 
-    currentSession = {
-        project,
-        phase: 'step1',
-        systemText,
-    };
+  // Save report
+  const reportMd = [
+    `# STPA Report`,
+    ``,
+    `- Project: ${project.baseName}`,
+    `- Domain: ${session.systemType}`,
+    `- Generated: ${new Date().toISOString()}`,
+    ``,
+    `---`,
+    ``,
+    `## Analysis Tables`,
+    buildMarkdownTables(result),
+    ``,
+    `---`,
+    ``,
+    `## Diagrams`,
+    ``,
+    `### Control Structure`,
+    '```mermaid',
+    clean(csMermaid),
+    '```',
+    ``,
+    `### UCA → Hazard → Loss`,
+    '```mermaid',
+    clean(impactMermaid),
+    '```',
+    ``,
+    `---`,
+    ``,
+    `## Guided Analysis (Steps 1–4)`,
+    ``,
+    `> See: ${path.basename(session.guidedFilePath)}`,
+  ].join('\n');
 
-    vscode.window.showInformationMessage('Starting guided STPA – Step 1...');
-    await runStep1(apiKey);
+  writeFile(path.join(project.dir, `${project.baseName}_report.md`), reportMd);
+
+  // Open preview panel using your existing command
+  await vscode.commands.executeCommand('stpa-agent.previewDiagrams');
+
+  vscode.window.showInformationMessage(`Diagrams + report + JSON created under ${project.baseName}.`);
 }
