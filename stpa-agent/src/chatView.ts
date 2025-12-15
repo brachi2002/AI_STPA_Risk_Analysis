@@ -2,8 +2,7 @@ import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
 type ToolbarIcons = {
-  analyze: vscode.Uri;
-  selection: vscode.Uri;
+  explain: vscode.Uri;
   diagram: vscode.Uri;
   clear: vscode.Uri;
 };
@@ -25,8 +24,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
     const mediaRoot = vscode.Uri.joinPath(this.context.extensionUri, 'media');
     const icons: ToolbarIcons = {
-      analyze: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'analyze.svg')),
-      selection: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'selection.svg')),
+      explain: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'analyze.svg')),
       diagram: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'diagram.svg')),
       clear: webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, 'clear.svg')),
     };
@@ -290,12 +288,12 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       }
       .tool-btn:hover { background: var(--btn-bg-hover); }
       .tool-btn.secondary {
-        background: transparent;
-        color: var(--fg);
-        border: 1px solid var(--border);
-        font-weight: 500;
+        background: var(--btn-bg);
+        color: var(--btn-fg);
+        border: none;
+        font-weight: 600;
       }
-      .tool-btn.secondary:hover { background: var(--vscode-editor-background); }
+      .tool-btn.secondary:hover {  background: var(--btn-bg-hover);  }
 
       .btn-icon img { width: 16px; height: 16px; }
 
@@ -456,16 +454,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       scrollToBottom();
 
       // toolbar
-      document.getElementById('btnAnalyze').onclick = () => {
-        if (isBusy) return;
-        showTyping();
-        vscode.postMessage({ type: 'analyzeFile' });
-      };
-      document.getElementById('btnAnalyzeSel').onclick = () => {
-        if (isBusy) return;
-        showTyping();
-        vscode.postMessage({ type: 'analyzeSelection' });
-      };
       document.getElementById('btnPreview').onclick = () => {
         if (isBusy) return;
         showTyping();
@@ -637,25 +625,16 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
             <div class="toolbar">
               <div class="toolbar-row">
-                <button id="btnAnalyze" class="tool-btn">
-                  <span class="btn-icon"><img src="${icons.analyze}" alt="" /></span>
-                  <span class="btn-label">Analyze File</span>
-                </button>
-                <button id="btnAnalyzeSel" class="tool-btn">
-                  <span class="btn-icon"><img src="${icons.selection}" alt="" /></span>
-                  <span class="btn-label">Analyze Selection</span>
-                </button>
-              </div>
-
-              <div class="toolbar-row">
                 <button id="btnPreview" class="tool-btn">
                   <span class="btn-icon"><img src="${icons.diagram}" alt="" /></span>
                   <span class="btn-label">Preview Diagrams</span>
                 </button>
 
-                <button id="btnExplain" class="tool-btn secondary">
+                <button id="btnExplain" class="tool-btn">
+                  <span class="btn-icon"><img src="${icons.explain}" alt="" /></span>
                   <span class="btn-label">Explain current step</span>
                 </button>
+
               </div>
 
               <div class="toolbar-row">
