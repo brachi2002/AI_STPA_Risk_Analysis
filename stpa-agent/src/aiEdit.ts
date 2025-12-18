@@ -1,4 +1,4 @@
-// src/aiEdit.ts
+// // src/aiEdit.ts
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
@@ -12,7 +12,6 @@ function endPositionFromText(start: vscode.Position, insertedText: string): vsco
   const lastLine = parts[parts.length - 1];
   return new vscode.Position(start.line + (parts.length - 1), lastLine.length);
 }
-
 
 /* ===========================
    עזרי זיהוי ופורמט
