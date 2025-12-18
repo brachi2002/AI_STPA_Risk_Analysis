@@ -24,16 +24,6 @@ import { buildControlStructureMermaid, buildImpactGraphMermaid } from './diagram
 import { deriveControlStructFromText } from './csExtract';
 import type { SystemType, StpaResult, ControlStructInput } from './types';
 
-
-import {
-	safeJsonParse,
-	renderStep1Markdown,
-	renderStep2Markdown,
-	renderStep3Markdown,
-	renderStep4Markdown,
-} from './renderGuided';
-
-
 /** -----------------------------------------------
  * ENV
  * ----------------------------------------------- */
@@ -271,235 +261,79 @@ async function runModel(apiKey: string, prompt: string): Promise<StpaResult> {
  * ----------------------------------------------- */
 function buildStep1Prompt(systemText: string, systemType: SystemType): string {
 	return [
-		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
+		'You are an expert STPA analyst.',
+		'Perform STPA Step 1 according to the STPA Handbook.',
+		'Output MUST include at least:',
+		'- 5 LOSSES (L1..)',
+		'- 5 HAZARDS (H1..) mapped to losses',
+		'- 5 SAFETY CONSTRAINTS (SC1..) mapped to hazards',
 		'',
-		'Perform STPA Step 1: Define the purpose of the analysis.',
-		'Reference: STPA Handbook (Nancy Leveson), Chapter 2, Step 1, page 15.',
+		'Use EXACT headings and line styles so the document is editable later:',
+		'=== LOSSES ===',
+		'L1: ...',
+		'...',
 		'',
-		'According to the STPA Handbook (p.15), Step 1 includes:',
-		'1) Identifying unacceptable losses',
-		'2) Identifying system-level hazards',
-		'3) Identifying system-level safety constraints',
-		'4) Refining hazards',
+		'=== HAZARDS ===',
+		'H1: ... (related: L1, L2)',
+		'...',
 		'',
-		'MANDATORY DEFINITIONS (from the STPA Handbook):',
-		'- Loss (L): an unacceptable outcome or harm to people, mission, property, environment, or public trust.',
-		'- Hazard (H): a SYSTEM STATE or SET OF CONDITIONS that, together with worst-case environmental conditions, will lead to one or more losses.',
-		'- Safety Constraint (SC): a system-level requirement or restriction that prevents or mitigates a hazard.',
-		'- Hazard Refinement: clarification of the operational context (ODD, assumptions, worst-case conditions) WITHOUT introducing causes, failures, control actions, UCAs, or scenarios.',
+		'=== CONSTRAINTS ===',
+		'SC1: ... (related: H1)',
+		'...',
 		'',
-		'ABSOLUTE RULE FOR HAZARDS (DO NOT VIOLATE):',
-		'- A Hazard MUST describe ONLY an externally observable dangerous system or vehicle state.',
-		'- A Hazard MUST describe WHAT unsafe situation exists, NOT WHY it exists.',
-		'',
-		'THE FOLLOWING ARE STRICTLY FORBIDDEN IN HAZARDS (even if phrased as "a state of"):',
-		'- failure / fails / failed',
-		'- delay / delayed / late',
-		'- insufficient / inadequate / ineffective',
-		'- detect / detection / misinterpret / misjudgment',
-		'- performance / degradation / reliability',
-		'- sensor / software / algorithm / controller / integration / communication',
-		'',
-		'If any forbidden word or forbidden concept appears in a hazard description:',
-		'- You MUST rewrite the hazard.',
-		'- Repeat rewriting until ALL hazards contain NONE of the forbidden words or concepts.',
-		'',
-		'MANDATORY HAZARD TEMPLATE:',
-		'Each hazard description MUST match this exact pattern:',
-		'"The vehicle or system is in [dangerous state] while [operational context]."',
-		'',
-		'ALLOWED DANGEROUS STATES (ONLY THESE TYPES):',
-		'- vehicle remains on a collision trajectory',
-		'- collision risk exists',
-		'- vehicle enters a loss-of-control or unstable state',
-		'- emergency braking is applied when no collision threat exists',
-		'- emergency braking is not applied when a collision threat exists',
-		'- driver is not warned during an imminent collision situation',
-		'',
-		'TRACEABILITY RULES:',
-		'- Every Hazard MUST map ONLY to Losses (L#).',
-		'- Hazards MUST NOT map to other Hazards.',
-		'- Every Safety Constraint MUST map to one or more Hazards (H#).',
-		'',
-		'COMPLETENESS REQUIREMENTS:',
-		'- At least 5 Losses (L1..L5+).',
-		'- At least 6 system-level Hazards (H1..H6+).',
-		'- At least 8 system-level Safety Constraints (SC1..SC8+).',
-		'- Exactly one refinement entry for EACH hazard.',
-		'',
-		'FINAL SELF-CHECK (MANDATORY):',
-		'Before producing the final output, verify:',
-		'1) No hazard contains any forbidden word or concept.',
-		'2) Every hazard describes ONLY a dangerous system or vehicle state.',
-		'3) No hazard explains a cause, failure, delay, or quality.',
-		'If any check fails, you MUST rewrite the hazards before returning the result.',
-		'',
-		'OUTPUT REQUIREMENTS:',
-		'- Return ONLY valid JSON.',
-		'- Do NOT include markdown, headings, explanations, or free text.',
-		'',
-		'JSON OUTPUT SCHEMA:',
-		'{',
-		'  "step": 1,',
-		'  "reference": "STPA Handbook, Step 1, p.15",',
-		'  "losses": [',
-		'    { "id": "L1", "description": "..." }',
-		'  ],',
-		'  "hazards": [',
-		'    { "id": "H1", "description": "The system is in ... while ...", "leads_to": ["L1","L2"] }',
-		'  ],',
-		'  "safety_constraints": [',
-		'    { "id": "SC1", "description": "The system shall ...", "addresses": ["H1"] }',
-		'  ],',
-		'  "refined_hazards": [',
-		'    { "hazard_id": "H1", "refinement": "Operational / worst-case context clarification only." }',
-		'  ],',
-		'  "missing_information": []',
-		'}',
+		'=== SUMMARY TABLE ===',
+		'(Provide a concise markdown table summarizing Losses, Hazards, Constraints.)',
 		'',
 		`Domain hints: ${systemType}.`,
 		'',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-	].join('\\n');
+	].join('\n');
 }
-
 
 function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text: string): string {
 	return [
-		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
+		'You are an expert STPA analyst.',
+		'Perform STPA Step 2 according to the STPA Handbook.',
+		'Goal: model the hierarchical control structure.',
 		'',
-		'Perform STPA Step 2: Model the hierarchical control structure.',
-		'Reference: STPA Handbook (Nancy Leveson), page 22, Figure 2.5.',
-		'On p.22: "Modeling the control structure ... model the hierarchical control structure, as Figure 2.5 shows."',
-		'',
-		'GOAL (MUST ACHIEVE):',
-		'- Produce a COMPLETE hierarchical control structure suitable for Step 3 (UCAs).',
-		'- The output MUST explicitly define control loops where each loop includes:',
-		'  Controller → Control Action(s) → Actuator(s) → Controlled Process → Feedback(s) → Controller.',
-		'',
-		'INPUTS:',
-		`Domain / system type: ${systemType}.`,
-		'',
-		'Use Step 1 ONLY for consistency (read-only). Do NOT modify Step 1 content:',
+		'Use Step 1 for consistency:',
 		'--- STEP 1 START ---',
 		step1Text,
 		'--- STEP 1 END ---',
 		'',
-		'System description (source of truth):',
+		'Output MUST use EXACT headings:',
+		'=== CONTROL_STRUCTURE_TEXT ===',
+		'(Concise textual description)',
+		'',
+		'=== COMPONENTS ===',
+		'- Controllers: ...',
+		'- Actuators: ...',
+		'- Sensors: ...',
+		'- Human Operators: ...',
+		'- Controlled Processes: ...',
+		'- External Systems/Interfaces: ...',
+		'',
+		'=== SUMMARY TABLE ===',
+		'(Concise markdown table of components)',
+		'',
+		`Domain hints: ${systemType}.`,
+		'',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-		'',
-		'HANDOOK-CONSISTENT MODELING RULES:',
-		'- Controllers: decision-making entities (human, software, device, organization).',
-		'- Actuators: mechanisms that physically affect the controlled process.',
-		'- Controlled process: the physical process/state being controlled (e.g., vehicle dynamics, motion state).',
-		'- Sensors/feedback: channels by which the controller learns the process state or action execution.',
-		'',
-		'STRICT RULES:',
-		'- Use ONLY information explicitly stated or clearly implied by the system description.',
-		'- Do NOT invent components, users, networks, or features not present or implied.',
-		'- If something is unclear but necessary for a complete loop, add it under "missing_information" as a question.',
-		'',
-		'CRITICAL DISTINCTION (MUST FOLLOW):',
-		'- Do NOT label a control unit as an actuator if it is a decision-making entity.',
-		'- If there is both a decision element and a physical mechanism, model them separately (controller vs actuator).',
-		'  Example: "Brake Control Unit" (controller-like) vs "Brake Actuator / Braking System" (actuator).',
-		'',
-		'CONTROL ACTION REQUIREMENTS (MUST FOLLOW):',
-		'- Control actions must be HIGH-LEVEL and suitable for UCA generation.',
-		'- For safety-critical actions, include both providing and withholding variants when relevant.',
-		'- Include driver-to-system control actions when implied (e.g., override/disable), and system-to-driver warnings when described.',
-		'',
-		'FEEDBACK REQUIREMENTS (MUST FOLLOW):',
-		'- Include feedback about: (1) process state, and (2) EXECUTION/RESULT of the control action (e.g., braking applied, deceleration achieved).',
-		'',
-		'MINIMUM COMPLETENESS (MUST MEET OR ASK QUESTIONS):',
-		'- >= 2 Controllers (if human + automation exist).',
-		'- >= 1 Controlled Process.',
-		'- >= 1 Actuator.',
-		'- >= 2 Sensors/feedback sources (if multiple are listed in system description).',
-		'- >= 4 Control Actions total (so Step 3 can generate UCAs robustly).',
-		'- >= 1 Control Loop that is fully closed with feedback (Controller and at least one Feedback signal).',
-		'',
-		'OUTPUT REQUIREMENTS:',
-		'- Return ONLY valid JSON (no markdown, no headings, no explanations).',
-		'- All IDs referenced in loops must exist in the relevant lists.',
-		'- Provide a "summary_table" that can be rendered in the report.',
-		'',
-		'JSON OUTPUT SCHEMA:',
-		'{',
-		'  "step": 2,',
-		'  "reference": "STPA Handbook, p.22 (Fig. 2.5 hierarchical control structure)",',
-		'  "control_structure": {',
-		'    "controllers": [',
-		'      { "id": "C1", "name": "...", "type": "human|software|device|organization", "notes": "" }',
-		'    ],',
-		'    "controlled_processes": [',
-		'      { "id": "P1", "name": "...", "notes": "" }',
-		'    ],',
-		'    "actuators": [',
-		'      { "id": "A1", "name": "...", "affects": ["P1"], "notes": "" }',
-		'    ],',
-		'    "sensors": [',
-		'      { "id": "S1", "name": "...", "measures": ["P1"], "notes": "" }',
-		'    ],',
-		'    "external_systems": [',
-		'      { "id": "X1", "name": "...", "notes": "" }',
-		'    ],',
-		'    "control_actions": [',
-		'      { "id": "CA1", "controller": "C1", "action": "..." }',
-		'    ],',
-		'    "feedback": [',
-		'      { "id": "F1", "from": "P1|A1|S1|X1|C2", "to": "C1", "signal": "...", "notes": "" }',
-		'    ],',
-		'    "control_loops": [',
-		'      {',
-		'        "id": "LOOP1",',
-		'        "controller": "C1",',
-		'        "controlled_process": "P1",',
-		'        "actuators": ["A1"],',
-		'        "control_actions": ["CA1"],',
-		'        "feedback": ["F1"],',
-		'        "notes": ""',
-		'      }',
-		'    ]',
-		'  },',
-		'  "summary_table": {',
-		'    "columns": ["Loop", "Controller", "Control Actions", "Actuators", "Controlled Process", "Feedback"],',
-		'    "rows": [',
-		'      ["LOOP1", "C1", "CA1; CA2", "A1", "P1", "F1; F2"]',
-		'    ]',
-		'  },',
-		'  "missing_information": []',
-		'}'
-	].join('\\n');
+	].join('\n');
 }
 
-
-
-function buildStep3Prompt(
-	systemText: string,
-	systemType: SystemType,
-	step1Text: string,
-	step2Text: string
-): string {
+function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string): string {
 	return [
-		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
+		'You are an expert STPA analyst.',
+		'Perform STPA Step 3 according to the STPA Handbook.',
+		'Goal: identify Unsafe Control Actions (UCAs).',
+		'Consider 4 categories: not provided, provided unsafe, wrong timing/order, stopped too soon/applied too long.',
 		'',
-		'Perform STPA Step 3: Identify Unsafe Control Actions (UCAs).',
-		'Reference: STPA Handbook (Nancy Leveson), page 35.',
-		'Definition (p.35): "An Unsafe Control Action (UCA) is a control action that, in a particular context and worst-case environment, will lead to a hazard."',
-		'',
-		'GOAL (MANDATORY):',
-		'- Identify Unsafe Control Actions strictly according to the STPA Handbook.',
-		'- UCAs must be derived ONLY from control actions defined in Step 2 and mapped ONLY to hazards defined in Step 1.',
-		'',
-		`Domain / system type: ${systemType}.`,
-		'',
-		'READ-ONLY INPUTS (do not modify):',
+		'Use prior steps:',
 		'--- STEP 1 START ---',
 		step1Text,
 		'--- STEP 1 END ---',
@@ -508,164 +342,58 @@ function buildStep3Prompt(
 		step2Text,
 		'--- STEP 2 END ---',
 		'',
+		'Output MUST use EXACT headings and line styles:',
+		'=== UCAS ===',
+		'UCA1: ... (control loop: ... ; related: H1)',
+		'UCA2: ...',
+		'...',
+		'',
+		'=== SUMMARY TABLE ===',
+		'(Concise markdown table mapping UCA → Hazard → Loss)',
+		'',
+		`Domain hints: ${systemType}.`,
+		'',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-		'',
-		'MANDATORY PROCESS:',
-		'1) Extract ONLY control actions that directly influence the controlled process or driver behavior relevant to safety.',
-		'   - If a listed control action does NOT directly influence system safety (e.g., acknowledgements, UI confirmations), do NOT generate UCAs for it.',
-		'2) For each valid control action, consider the four STPA UCA categories (as applicable):',
-		'   A) Not providing the control action when required (omission)',
-		'   B) Providing the control action when not appropriate (commission)',
-		'   C) Providing the control action too early, too late, or out of order (timing/sequence)',
-		'   D) Applying the control action too long or stopping it too soon (duration)',
-		'',
-		'UCA FORMULATION RULES (STRICT):',
-		'- Each UCA must be phrased as an unsafe control action in context, not as a failure, cause, or explanation.',
-		'- Do NOT use causal language such as: "fails to", "due to", "because of", "sensor error", "mis-detection".',
-		'- Do NOT describe consequences, mitigations, or safety constraints.',
-		'- Each UCA must explicitly reference:',
-		'  • the controller (C#)',
-		'  • the control action (CA#)',
-		'  • a concrete operational context',
-		'  • at least one hazard (H#) from Step 1',
-		'',
-		'CONTEXT REQUIREMENTS:',
-		'- Context must describe operational conditions (e.g., urban traffic, pedestrian presence, low speed, adverse weather).',
-		'- Context must NOT include internal failures or implementation details.',
-		'- If context information is insufficient, list a clarification question under "missing_information".',
-		'',
-		'COVERAGE REQUIREMENTS:',
-		'- Generate UCAs for all safety-relevant control actions.',
-		'- Include at least one UCA from each applicable category (omission, commission, timing, duration).',
-		'- Avoid generating artificial UCAs just to fill categories.',
-		'',
-		'OUTPUT REQUIREMENTS:',
-		'- Return ONLY valid JSON (no markdown, no explanations).',
-		'- Ensure IDs (UCA#, CA#, C#, H#) are consistent with Steps 1 and 2.',
-		'- Include a summary_table suitable for rendering in the final report.',
-		'',
-		'JSON OUTPUT SCHEMA:',
-		'{',
-		'  "step": 3,',
-		'  "reference": "STPA Handbook, p.35",',
-		'  "unsafe_control_actions": [',
-		'    {',
-		'      "id": "UCA1",',
-		'      "control_action_id": "CA1",',
-		'      "controller_id": "C1",',
-		'      "type": "omission|commission|timing|duration",',
-		'      "uca": "In <context>, controller C# provides / does not provide control action CA# ...",',
-		'      "context": "<specific operational context>",',
-		'      "leads_to_hazards": ["H1"],',
-		'      "notes": ""',
-		'    }',
-		'  ],',
-		'  "summary_table": {',
-		'    "columns": ["UCA", "CA", "Controller", "Type", "Hazards"],',
-		'    "rows": [',
-		'      ["UCA1", "CA1", "C1", "omission", "H1"]',
-		'    ]',
-		'  },',
-		'  "missing_information": []',
-		'}'
-	].join('\\n');
+	].join('\n');
 }
 
-
-
-
-function buildStep4Prompt(
-	systemText: string,
-	systemType: SystemType,
-	step1Text: string,
-	step2Text: string,
-	step3Text: string
-): string {
+function buildStep4Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string, step3Text: string): string {
 	return [
-		'You are an STPA analysis assistant.',
+		'You are an expert STPA analyst.',
+		'Perform STPA Step 4 according to the STPA Handbook.',
+		'Goal: identify loss scenarios / causal factors leading to UCAs and hazards.',
 		'',
-		'Perform STPA Step 4 according to the STPA Handbook (Leveson).',
-		'Reference: STPA Handbook, page 42.',
-		'On page 42 it states: "4. Identify loss scenarios. Definition: A loss scenario describes the causal factors that can lead to the unsafe control actions and to hazards."',
-		'',
-		'Goal:',
-		'- Identify loss scenarios (causal factors) that can lead to the Unsafe Control Actions (UCAs) and/or directly to Hazards.',
-		'- Each scenario must be traceable to specific UCA(s) and Hazard(s) already identified.',
-		'',
-		'System under analysis:',
-		`Domain / system type: ${systemType}.`,
-		'',
-		'Use Step 1 ONLY for consistency (read-only):',
+		'Use prior steps:',
 		'--- STEP 1 START ---',
 		step1Text,
 		'--- STEP 1 END ---',
 		'',
-		'Use Step 2 ONLY for consistency (read-only):',
 		'--- STEP 2 START ---',
 		step2Text,
 		'--- STEP 2 END ---',
 		'',
-		'Use Step 3 ONLY for consistency (read-only):',
 		'--- STEP 3 START ---',
 		step3Text,
 		'--- STEP 3 END ---',
 		'',
-		'System description (source of truth):',
+		'Output MUST use EXACT headings:',
+		'=== LOSS SCENARIOS ===',
+		'LS1: ... (related: UCA1, H1)',
+		'LS2: ...',
+		'...',
+		'',
+		'=== SUMMARY TABLE ===',
+		'(Concise markdown table Scenario → UCA → Hazard → Loss)',
+		'',
+		`Domain hints: ${systemType}.`,
+		'',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-		'',
-		'Instructions:',
-		'- Extract UCAs (UCA#) from Step 3, and Hazards (H#) from Step 1.',
-		'- For each UCA (and where appropriate, for each Hazard), identify plausible causal factors that could lead to it.',
-		'- Loss scenarios should describe how causal factors combine to produce the UCA and/or Hazard (not just list single failures).',
-		'',
-		'Model-based guidance (handbook-consistent, system level):',
-		'- Consider flaws in the control loop from Step 2 (controller, actuator, controlled process, sensors/feedback).',
-		'- Consider incorrect or missing feedback, incorrect assumptions, delayed feedback, or mismatched process model.',
-		'- Consider communication/coordination issues between human and automation if present in the description.',
-		'- Consider environmental disturbances or operational contexts mentioned or implied by the system description.',
-		'',
-		'Strict rules:',
-		'- Do NOT invent new UCAs, hazards, components, or control actions; only reference those already in Steps 1–3.',
-		'- Use ONLY causal factors that are explicitly supported by or clearly implied by the system description and control structure.',
-		'- Keep scenarios at a level useful for later mitigation (avoid low-level technical speculation unless described).',
-		'- If you cannot justify a scenario due to missing information, add a clarification question instead of guessing.',
-		'',
-		'Output requirements:',
-		'- Return ONLY valid JSON (no markdown, no extra explanation).',
-		'- Include a summary table in the JSON output.',
-		'- Ensure traceability: each scenario must reference at least one UCA and at least one Hazard.',
-		'',
-		'JSON output schema:',
-		'{',
-		'  "step": 4,',
-		'  "reference": "STPA Handbook, p.42",',
-		'  "loss_scenarios": [',
-		'    {',
-		'      "id": "LS1",',
-		'      "linked_ucas": ["UCA1"],',
-		'      "linked_hazards": ["H1"],',
-		'      "causal_factors": [',
-		'        "..."',
-		'      ],',
-		'      "scenario": "...</short narrative of how the factors can lead to the UCA/hazard...>",',
-		'      "notes": ""',
-		'    }',
-		'  ],',
-		'  "summary_table": {',
-		'    "columns": ["LS", "UCAs", "Hazards", "Key causal factors"],',
-		'    "rows": [',
-		'      ["LS1", "UCA1", "H1", "Factor A; Factor B"]',
-		'    ]',
-		'  },',
-		'  "missing_information": []',
-		'}'
-	].join('\\n');
+	].join('\n');
 }
-
 
 async function runStepText(apiKey: string, prompt: string): Promise<string> {
 	const openai = new OpenAI({ apiKey });
@@ -699,8 +427,6 @@ let guidedSession: GuidedSession | null = null;
 /** Build guided md content (NO system description in file) */
 function buildGuidedFileContent(session: GuidedSession): string {
 	const lines: string[] = [];
-
-	// Header
 	lines.push(`# STPA Guided Analysis`);
 	lines.push(``);
 	lines.push(`- **Project:** ${session.project.baseName}`);
@@ -710,91 +436,35 @@ function buildGuidedFileContent(session: GuidedSession): string {
 	lines.push(`---`);
 	lines.push(``);
 
-	const renderMissingInfo = (parsed: any): string => {
-		const mi = parsed?.missing_information;
-		if (!Array.isArray(mi) || mi.length === 0) return '';
-		return [
-			'',
-			'### Missing Information / Clarifications',
-			...mi.map((q: string) => `- ${q}`),
-			'',
-		].join('\n');
-	};
-
-	// Step 1
 	if (session.step1Text) {
 		lines.push(`## Step 1 – Define Purpose of Analysis`);
-
-		const parsed = safeJsonParse(session.step1Text);
-		if (parsed) {
-			lines.push(renderStep1Markdown(parsed).trim());
-			const mi = renderMissingInfo(parsed);
-			if (mi) lines.push(mi.trim());
-		} else {
-			// fallback: keep raw (legacy)
-			lines.push(session.step1Text.trim());
-		}
-
+		lines.push(session.step1Text.trim());
 		lines.push(``);
 		lines.push(`---`);
 		lines.push(``);
 	}
-
-	// Step 2
 	if (session.step2Text) {
 		lines.push(`## Step 2 – Model the Control Structure`);
-
-		const parsed = safeJsonParse(session.step2Text);
-		if (parsed) {
-			lines.push(renderStep2Markdown(parsed).trim());
-			const mi = renderMissingInfo(parsed);
-			if (mi) lines.push(mi.trim());
-		} else {
-			lines.push(session.step2Text.trim());
-		}
-
+		lines.push(session.step2Text.trim());
 		lines.push(``);
 		lines.push(`---`);
 		lines.push(``);
 	}
-
-	// Step 3
 	if (session.step3Text) {
 		lines.push(`## Step 3 – Identify Unsafe Control Actions`);
-
-		const parsed = safeJsonParse(session.step3Text);
-		if (parsed) {
-			lines.push(renderStep3Markdown(parsed).trim());
-			const mi = renderMissingInfo(parsed);
-			if (mi) lines.push(mi.trim());
-		} else {
-			lines.push(session.step3Text.trim());
-		}
-
+		lines.push(session.step3Text.trim());
 		lines.push(``);
 		lines.push(`---`);
 		lines.push(``);
 	}
-
-	// Step 4
 	if (session.step4Text) {
 		lines.push(`## Step 4 – Identify Loss Scenarios`);
-
-		const parsed = safeJsonParse(session.step4Text);
-		if (parsed) {
-			lines.push(renderStep4Markdown(parsed).trim());
-			const mi = renderMissingInfo(parsed);
-			if (mi) lines.push(mi.trim());
-		} else {
-			lines.push(session.step4Text.trim());
-		}
-
+		lines.push(session.step4Text.trim());
 		lines.push(``);
 	}
 
 	return lines.join('\n');
 }
-
 
 async function writeGuidedFile(session: GuidedSession) {
 	const content = buildGuidedFileContent(session);
@@ -830,6 +500,9 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerWebviewViewProvider(StpaChatViewProvider.viewId, chatProvider)
 	);
 
+	const inlineDisp = registerInlineCompletion(() => process.env.OPENAI_API_KEY);
+	context.subscriptions.push(inlineDisp);
+
 	const addedGreenDecoration = vscode.window.createTextEditorDecorationType({
 		backgroundColor: 'rgba(0, 255, 0, 0.18)',
 		border: '1px solid rgba(0, 255, 0, 0.35)',
@@ -839,8 +512,15 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(addedGreenDecoration);
 
 
-	const inlineDisp = registerInlineCompletion(() => process.env.OPENAI_API_KEY);
-	context.subscriptions.push(inlineDisp);
+	function highlightAddedRanges(editor: vscode.TextEditor | undefined, ranges: vscode.Range[], ms = 6000) {
+		if (!editor || !ranges?.length) return;
+		editor.setDecorations(addedGreenDecoration, ranges);
+
+		setTimeout(() => {
+			// עדיין אותו עורך? אם לא – לא קריטי, פשוט ננסה לנקות
+			editor.setDecorations(addedGreenDecoration, []);
+		}, ms);
+	}
 
 	/** --------------------------------------------
 	 * Classic Analyze Current File
@@ -1123,17 +803,6 @@ export function activate(context: vscode.ExtensionContext) {
 	/** --------------------------------------------
 	 * Smart Edit command (shared)
 	 * -------------------------------------------- */
-
-	function highlightAddedRanges(editor: vscode.TextEditor | undefined, ranges: vscode.Range[], ms = 6000) {
-		if (!editor || !ranges?.length) return;
-		editor.setDecorations(addedGreenDecoration, ranges);
-
-		setTimeout(() => {
-			// עדיין אותו עורך? אם לא – לא קריטי, פשוט ננסה לנקות
-			editor.setDecorations(addedGreenDecoration, []);
-		}, ms);
-	}
-
 	const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction?: string) => {
 		try {
 			if (!instruction || !instruction.trim()) return 'No instruction provided.';
