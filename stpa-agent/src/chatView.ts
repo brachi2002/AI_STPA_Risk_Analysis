@@ -544,6 +544,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       // receive from extension
       window.addEventListener('message', (event) => {
         const msg = event.data;
+        
 
         if (msg.type === 'append') {
           hideTyping();
