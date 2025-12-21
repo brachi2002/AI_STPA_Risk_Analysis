@@ -20,6 +20,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   resolveWebviewView(webviewView: vscode.WebviewView) {
     this._view = webviewView;
     const webview = webviewView.webview;
+
     webview.options = { enableScripts: true };
 
     const mediaRoot = vscode.Uri.joinPath(this.context.extensionUri, 'media');
@@ -90,8 +91,11 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               msg.payload?.text
             );
 
-            const text = Array.isArray(res) ? res.join('\n') : (res || 'Applied.');
-            this.sendToWebview({ type: 'append', payload: { role: 'assistant', text } });
+            const text = Array.isArray(res) ? res.join('\n') : res || 'Applied.';
+            this.sendToWebview({
+              type: 'append',
+              payload: { role: 'assistant', text },
+            });
           } catch (e: any) {
             this.sendToWebview({
               type: 'append',
@@ -175,7 +179,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         font-family: var(--vscode-font-family);
         font-size: 13px;
       }
-
       .container {
         display: grid;
         grid-template-rows: 1fr auto auto;
@@ -183,7 +186,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         gap: 8px;
         padding: 10px;
       }
-
       .chat {
         border: 1px solid var(--border);
         border-radius: 10px;
@@ -209,27 +211,23 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         color: var(--muted);
         margin: 0 6px;
       }
-
       .user { justify-content: flex-end; }
       .user .bubble {
         background: var(--vscode-charts-blue);
         color: white;
         border-bottom-right-radius: 4px;
       }
-
       .assistant { justify-content: flex-start; }
       .assistant .bubble {
         background: var(--vscode-editorInlayHint-background, #00000020);
         border-bottom-left-radius: 4px;
       }
-
       .system { justify-content: center; }
       .system .bubble {
         background: transparent;
         color: var(--muted);
         border: 1px dashed var(--border);
       }
-
       .action-row {
         display: flex;
         gap: 8px;
@@ -451,6 +449,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
           renderWelcomeButtonsOnly();
         }
       }
+
       scrollToBottom();
 
       // toolbar
@@ -459,6 +458,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         showTyping();
         vscode.postMessage({ type: 'previewDiagrams' });
       };
+
       document.getElementById('btnExplain').onclick = () => {
         if (isBusy) return;
         showTyping();
@@ -475,6 +475,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
       // send manual/smart edit
       document.getElementById('btnSend').onclick = onSend;
+
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
@@ -487,6 +488,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
         const text = input.value.trim();
         if (!text) return;
+
         input.value = '';
         append('user', text, true);
 
@@ -544,7 +546,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       // receive from extension
       window.addEventListener('message', (event) => {
         const msg = event.data;
-        
 
         if (msg.type === 'append') {
           hideTyping();
@@ -553,6 +554,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
         if (msg.type === 'busy') {
           isBusy = !!msg.payload;
+
           if (isBusy) {
             root.classList.add('busy');
             showTyping();
@@ -635,7 +637,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
                   <span class="btn-icon"><img src="${icons.explain}" alt="" /></span>
                   <span class="btn-label">Explain current step</span>
                 </button>
-
               </div>
 
               <div class="toolbar-row">
@@ -651,6 +652,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               <button id="btnSend" class="send-btn">Send</button>
             </div>
           </div>
+
           <script>${js}</script>
         </body>
       </html>
