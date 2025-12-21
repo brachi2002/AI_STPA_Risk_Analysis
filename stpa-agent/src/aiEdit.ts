@@ -1,9 +1,17 @@
-// src/aiEdit.ts
+// // src/aiEdit.ts
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
 /** איזה סוג פריט מוסיפים */
 export type EditKind = 'hazard' | 'loss' | 'uca';
+
+/** מחשב Position סופי עבור טקסט שמוכנס החל מ-start */
+function endPositionFromText(start: vscode.Position, insertedText: string): vscode.Position {
+  const parts = insertedText.split(/\r?\n/);
+  if (parts.length === 1) return start.translate(0, parts[0].length);
+  const lastLine = parts[parts.length - 1];
+  return new vscode.Position(start.line + (parts.length - 1), lastLine.length);
+}
 
 /* ===========================
    עזרי זיהוי ופורמט
@@ -38,8 +46,8 @@ function findSectionRange(lines: string[], kind: EditKind): { start: number; end
     kind === 'hazard'
       ? /^\s*(\[?\s*HAZARDS\s*\]?|===\s*HAZARDS\s*===)\s*$/i
       : kind === 'loss'
-      ? /^\s*(\[?\s*LOSSES\s*\]?|===\s*LOSSES\s*===)\s*$/i
-      : /^\s*(\[?\s*UCAS\s*\]?|===\s*UCAS\s*===)\s*$/i;
+        ? /^\s*(\[?\s*LOSSES\s*\]?|===\s*LOSSES\s*===)\s*$/i
+        : /^\s*(\[?\s*UCAS\s*\]?|===\s*UCAS\s*===)\s*$/i;
 
   // כל כותרת סקשן אחרת (למשל [LOSSES] / === LOSSES === / [SOMETHING ELSE])
   const nextHeadRx = /^\s*(\[[^\]]+\]|===\s*.+\s*===)\s*$/;
@@ -142,8 +150,8 @@ function buildGenPrompt(kind: EditKind, userInstruction: string, systemText: str
     kind === 'hazard'
       ? 'H7: ... (related: L2, L4)\nH8: ... (related: L1)'
       : kind === 'loss'
-      ? 'L6: ...\nL7: ...'
-      : 'UCA9: ... (control loop: ... ; related: H2)\nUCA10: ... (control loop: ... ; related: H5)';
+        ? 'L6: ...\nL7: ...'
+        : 'UCA9: ... (control loop: ... ; related: H2)\nUCA10: ... (control loop: ... ; related: H5)';
 
   return [
     `You are assisting an STPA editor. Given the user's instruction and the existing system text,`,
@@ -188,7 +196,7 @@ function normalizeGeneratedLines(raw: string): string[] {
 export async function smartEditFromChat(
   instruction: string,
   kindHint?: EditKind
-): Promise<{ applied: string[]; preview: string[] }> {
+): Promise<{ applied: string[]; preview: string[]; ranges: vscode.Range[] }> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) throw new Error('No active editor to edit.');
 
@@ -227,15 +235,15 @@ export async function smartEditFromChat(
       kind === 'hazard'
         ? nextIndex(lines, /^H(\d+)\s*:/i)
         : kind === 'loss'
-        ? nextIndex(lines, /^L(\d+)\s*:/i)
-        : nextIndex(lines, /^UCA(\d+)\s*:/i);
+          ? nextIndex(lines, /^L(\d+)\s*:/i)
+          : nextIndex(lines, /^UCA(\d+)\s*:/i);
 
     toInsert = genLines.map((l, i) =>
       kind === 'hazard'
         ? `H${next + i}: ${l.replace(/^H\d+\s*:\s*/i, '')}`
         : kind === 'loss'
-        ? `L${next + i}: ${l.replace(/^L\d+\s*:\s*/i, '')}`
-        : `UCA${next + i}: ${l.replace(/^UCA\d+\s*:\s*/i, '')}`
+          ? `L${next + i}: ${l.replace(/^L\d+\s*:\s*/i, '')}`
+          : `UCA${next + i}: ${l.replace(/^UCA\d+\s*:\s*/i, '')}`
     );
   }
 
@@ -248,7 +256,7 @@ export async function smartEditFromChat(
         new vscode.Position(editor.document.lineCount, 0)
       );
       await editor.edit(ed => ed.replace(fullRange, updated));
-      return { applied: toInsert, preview: genLines };
+      return { applied: toInsert, preview: genLines, ranges: [] };
     }
     // אם לא מצאנו מערך מתאים – ניפול לגישת טקסט (ניצור סקשן טקסטואלי בסוף)
   }
@@ -256,7 +264,13 @@ export async function smartEditFromChat(
   // מסמך טקסטואלי: החדרה במקום המדויק בתוך הסקשן
   const insertAt = findInsertLinePrecise(lines, kind);
   const pos = new vscode.Position(insertAt, 0);
-  await editor.edit(ed => ed.insert(pos, toInsert.join('\n') + '\n'));
 
-  return { applied: toInsert, preview: genLines };
+  const insertedText = toInsert.join('\n') + '\n';
+  await editor.edit(ed => ed.insert(pos, insertedText));
+
+  const endPos = endPositionFromText(pos, insertedText);
+  const range = new vscode.Range(pos, endPos);
+
+  return { applied: toInsert, preview: genLines, ranges: [range] };
+
 }
