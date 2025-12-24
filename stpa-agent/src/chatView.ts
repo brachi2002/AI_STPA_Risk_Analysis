@@ -11,10 +11,24 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  // When true, the next time the webview signals "ready", we clear chat state/UI.
+  private _clearOnNextReady = true;
 
+  constructor(private readonly context: vscode.ExtensionContext) { }
+
+  /** Safely send a message to the webview (if mounted). */
   public sendToWebview(message: any) {
     this._view?.webview.postMessage(message);
+  }
+
+  /**
+   * Ask the webview to clear itself the next time it's ready.
+   * Call this from activate() to ensure a fresh chat after reload/run.
+   */
+  public requestClearOnNextReady() {
+    this._clearOnNextReady = true;
+    // If already mounted, attempt an immediate reset too.
+    this.sendToWebview({ type: 'reset' });
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -34,6 +48,15 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
     webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
+        // Webview handshake: it is now safe to post messages to it.
+        case 'ready': {
+          if (this._clearOnNextReady) {
+            this._clearOnNextReady = false;
+            this.sendToWebview({ type: 'reset' });
+          }
+          break;
+        }
+
         case 'analyzeFile':
           await vscode.commands.executeCommand('stpa-agent.analyzeCurrentFile');
           break;
@@ -58,40 +81,68 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
             case 'startStep1':
               await vscode.commands.executeCommand('stpa-agent.guided.startStep1');
               break;
+
             case 'continueStep2':
-              await vscode.commands.executeCommand('stpa-agent.guided.continueStep2');
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 2);
               break;
+
             case 'continueStep3':
-              await vscode.commands.executeCommand('stpa-agent.guided.continueStep3');
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 3);
               break;
+
             case 'continueStep4':
-              await vscode.commands.executeCommand('stpa-agent.guided.continueStep4');
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 4);
               break;
+
             case 'editCurrentStep':
               await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
               break;
+
             case 'generateDiagrams':
               await vscode.commands.executeCommand('stpa-agent.guided.generateDiagrams');
               break;
+
+            case 'confirmJumpGuidedFile':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpConfirm');
+              break;
+
+            // NEW: in-chat jump buttons
+            case 'jumpStep1':
+              await vscode.commands.executeCommand('stpa-agent.guided.startStep1');
+              break;
+
+            case 'jumpStep2':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 2);
+              break;
+
+            case 'jumpStep3':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 3);
+              break;
+
+            case 'jumpStep4':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 4);
+              break;
+
+
+            // old command (optional to keep)
             case 'jumpToStep':
               await vscode.commands.executeCommand('stpa-agent.guided.jumpToStep');
               break;
+
             default:
               break;
           }
           break;
         }
 
+
         case 'smartEdit': {
           try {
             this.sendToWebview({ type: 'busy', payload: true });
 
-            const res = await vscode.commands.executeCommand(
-              'stpa-agent.smartEdit',
-              msg.payload?.text
-            );
+            const res = await vscode.commands.executeCommand('stpa-agent.smartEdit', msg.payload?.text);
 
-            const text = Array.isArray(res) ? res.join('\n') : res || 'Applied.';
+            const text = Array.isArray(res) ? res.join('\n') : (res as any) || 'Applied.';
             this.sendToWebview({
               type: 'append',
               payload: { role: 'assistant', text },
@@ -107,10 +158,29 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case 'applySmartEditPlan': {
+          const planId = msg?.payload?.id;
+          const out = await vscode.commands.executeCommand('stpa-agent.smartEdit.applyPlan', planId);
+          if (typeof out === 'string' && out.trim()) {
+            this.sendToWebview({ type: 'append', payload: { role: 'assistant', text: out } });
+          }
+          break;
+        }
+
+        case 'discardSmartEditPlan': {
+          const planId = msg?.payload?.id;
+          const out = await vscode.commands.executeCommand('stpa-agent.smartEdit.discardPlan', planId);
+          if (typeof out === 'string' && out.trim()) {
+            this.sendToWebview({ type: 'append', payload: { role: 'assistant', text: out } });
+          }
+          break;
+        }
+
         case 'manualPrompt':
           await this.runManualPrompt(msg.payload?.text ?? '');
           break;
 
+        // User clicked Clear in the UI
         case 'clear':
           this.sendToWebview({ type: 'reset' });
           break;
@@ -123,7 +193,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
   private async runManualPrompt(text: string) {
     if (!text.trim()) {
-      this.sendToWebview({ type: 'toast', payload: 'נא להקליד הודעה.' });
+      this.sendToWebview({ type: 'toast', payload: 'Please type a message.' });
       return;
     }
 
@@ -228,6 +298,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         color: var(--muted);
         border: 1px dashed var(--border);
       }
+
       .action-row {
         display: flex;
         gap: 8px;
@@ -291,7 +362,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         border: none;
         font-weight: 600;
       }
-      .tool-btn.secondary:hover {  background: var(--btn-bg-hover);  }
+      .tool-btn.secondary:hover { background: var(--btn-bg-hover); }
 
       .btn-icon img { width: 16px; height: 16px; }
 
@@ -346,11 +417,29 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         animation: blink 1s infinite steps(1,end);
       }
       @keyframes blink { 50% { opacity: 0; } }
+
+      /* Smart edit plan card */
+      .plan-card {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        margin: 10px 0;
+        background: var(--vscode-editor-background);
+      }
+      .plan-title { font-weight: 700; margin-bottom: 6px; }
+      .plan-summary { color: var(--muted); margin-bottom: 8px; }
+      .plan-actions { margin-top: 6px; }
+      .plan-btn-row { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+      .plan-btn { border-radius: 8px; padding: 6px 10px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--btn-fg); cursor: pointer; font-weight: 600; }
+      .plan-btn:hover { background: var(--btn-bg-hover); }
+      .plan-btn.secondary { background: transparent; color: var(--fg); font-weight: 500; }
     `;
 
+    // IMPORTANT: This string is embedded inside another template literal (the HTML).
+    // Avoid backticks inside this JS string (no template literals inside).
     const js = `
       const vscode = acquireVsCodeApi();
-      const state = vscode.getState() || { messages: [] };
+      const saved = vscode.getState() || { messages: [] };
 
       const chat = document.getElementById('chat');
       const input = document.getElementById('input');
@@ -360,13 +449,24 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
       const WELCOME_TEXT = 'Hi, I am your STPA Agent. I can guide you step-by-step according to the STPA Handbook.';
 
-      function persist(role, text) {
-        const messages = (vscode.getState()?.messages || []);
-        messages.push({ id: String(Date.now()), role, text });
-        vscode.setState({ messages });
+      function getMessages() {
+        const st = vscode.getState() || { messages: [] };
+        return Array.isArray(st.messages) ? st.messages : [];
       }
 
-      function append(role, text, save = true) {
+      function setMessages(messages) {
+        vscode.setState({ messages: messages });
+      }
+
+      function persist(role, text) {
+        const messages = getMessages();
+        messages.push({ id: String(Date.now()), role: role, text: text });
+        setMessages(messages);
+      }
+
+      function append(role, text, save) {
+        if (save === undefined) save = true;
+
         const row = document.createElement('div');
         row.className = 'msg ' + role;
 
@@ -395,21 +495,34 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       }
 
       function renderActionButtons(groupId, buttons) {
+        const existing = chat.querySelector('.action-row[data-group="' + groupId + '"]');
+        if (existing) return;
+
         const row = document.createElement('div');
         row.className = 'action-row';
         row.dataset.group = groupId;
 
-        buttons.forEach(btn => {
+        buttons.forEach(function(btn) {
           const b = document.createElement('button');
           b.className = 'action-btn ' + (btn.secondary ? 'secondary' : '');
           b.textContent = btn.label;
-          b.onclick = () => {
+          b.onclick = function() {
             if (isBusy) return;
+
             row.remove();
             append('user', btn.label, true);
+
+            // Jump button: open menu inside chat only
+            if (btn.action === 'openJumpMenu') {
+              hideTyping();
+              renderJumpMenu();
+              return;
+            }
+
             showTyping();
             vscode.postMessage({ type: 'guidedAction', payload: { action: btn.action } });
           };
+
           row.appendChild(b);
         });
 
@@ -417,33 +530,128 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         scrollToBottom();
       }
 
-      function renderWelcomeButtonsOnly() {
-        // avoid duplicates
-        if (chat.querySelector('.action-row[data-group="welcome"]')) return;
 
+      function renderSmartEditPlan(plan) {
+        if (!plan || !plan.id) return;
+
+        // Remove previous plan card with the same id
+        const existing = document.querySelector('[data-plan-id="' + plan.id + '"]');
+        if (existing) existing.remove();
+
+        const card = document.createElement('div');
+        card.className = 'plan-card';
+        card.setAttribute('data-plan-id', plan.id);
+
+        const title = document.createElement('div');
+        title.className = 'plan-title';
+        title.textContent = plan.title || 'Suggested consistency fixes';
+
+        const summary = document.createElement('div');
+        summary.className = 'plan-summary';
+        summary.textContent = plan.summary || '';
+
+        const actions = Array.isArray(plan.actions) ? plan.actions : [];
+        if (actions.length) {
+          const listWrap = document.createElement('div');
+          listWrap.className = 'plan-actions';
+
+          const ul = document.createElement('ul');
+          ul.style.margin = '6px 0 0 18px';
+          ul.style.padding = '0';
+
+          actions.slice(0, 12).forEach(function(a) {
+            const li = document.createElement('li');
+            const op = String(a.op || '').toUpperCase();
+            const sec = String(a.section || '');
+            const note = a.note ? (' — ' + String(a.note)) : '';
+            li.textContent = op + ' in ' + sec + note;
+            ul.appendChild(li);
+          });
+
+          if (actions.length > 12) {
+            const li = document.createElement('li');
+            li.textContent = '...and ' + String(actions.length - 12) + ' more';
+            ul.appendChild(li);
+          }
+
+          listWrap.appendChild(ul);
+          card.appendChild(listWrap);
+        }
+
+        const btnRow = document.createElement('div');
+        btnRow.className = 'plan-btn-row';
+
+        const applyBtn = document.createElement('button');
+        applyBtn.className = 'plan-btn';
+        applyBtn.textContent = 'Apply suggested fixes';
+        applyBtn.addEventListener('click', function() {
+          vscode.postMessage({ type: 'applySmartEditPlan', payload: { id: plan.id } });
+          applyBtn.disabled = true;
+        });
+
+        const discardBtn = document.createElement('button');
+        discardBtn.className = 'plan-btn secondary';
+        discardBtn.textContent = 'Dismiss';
+        discardBtn.addEventListener('click', function() {
+          vscode.postMessage({ type: 'discardSmartEditPlan', payload: { id: plan.id } });
+          card.remove();
+        });
+
+        btnRow.appendChild(applyBtn);
+        btnRow.appendChild(discardBtn);
+
+        card.appendChild(title);
+        card.appendChild(summary);
+        card.appendChild(btnRow);
+
+        // Show as an assistant message block (consistent layout)
+        chat.appendChild(card);
+        scrollToBottom();
+      }
+        
+
+
+      function renderWelcomeButtonsOnly() {
         renderActionButtons('welcome', [
           { label: 'Start guided STPA (Step 1)', action: 'startStep1' },
-          { label: 'Jump to a specific step', action: 'jumpToStep', secondary: true }
+          { label: 'Jump to a specific step', action: 'openJumpMenu', secondary: true }
         ]);
       }
 
       function renderWelcome() {
-        // IMPORTANT: do NOT persist the welcome message, otherwise on reload it blocks buttons.
         append('system', WELCOME_TEXT, false);
         renderWelcomeButtonsOnly();
       }
 
+      function renderJumpMenu() {
+        renderActionButtons('jumpMenu', [
+          { label: 'Step 1', action: 'startStep1' },
+          { label: 'Step 2', action: 'continueStep2' },
+          { label: 'Step 3', action: 'continueStep3' },
+          { label: 'Step 4', action: 'continueStep4' },
+        ]);
+      }
+
+
+
+
+      function hardReset() {
+        hideTyping();
+        chat.innerHTML = '';
+        setMessages([]);
+        renderWelcome();
+      }
+
       // initial render
-      if (!state.messages || state.messages.length === 0) {
+      if (!saved.messages || saved.messages.length === 0) {
         renderWelcome();
       } else {
-        (state.messages || []).forEach(m => append(m.role, m.text, false));
+        (saved.messages || []).forEach(function(m) { append(m.role, m.text, false); });
 
-        // If the state contains ONLY the welcome message (common after reload) → show the welcome buttons.
         const onlyWelcome =
-          (state.messages.length === 1 &&
-           state.messages[0].role === 'system' &&
-           String(state.messages[0].text || '').includes('STPA Agent'));
+          (saved.messages.length === 1 &&
+           saved.messages[0].role === 'system' &&
+           String(saved.messages[0].text || '').indexOf('STPA Agent') !== -1);
 
         if (onlyWelcome) {
           renderWelcomeButtonsOnly();
@@ -452,31 +660,33 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
       scrollToBottom();
 
+      // Tell extension we're ready (so it can clear on activation)
+      window.addEventListener('load', function() {
+        vscode.postMessage({ type: 'ready' });
+      });
+
       // toolbar
-      document.getElementById('btnPreview').onclick = () => {
+      document.getElementById('btnPreview').onclick = function() {
         if (isBusy) return;
         showTyping();
         vscode.postMessage({ type: 'previewDiagrams' });
       };
 
-      document.getElementById('btnExplain').onclick = () => {
+      document.getElementById('btnExplain').onclick = function() {
         if (isBusy) return;
         showTyping();
         vscode.postMessage({ type: 'explainCurrentStep' });
       };
 
-      document.getElementById('btnClear').onclick = () => {
-        vscode.setState({ messages: [] });
-        chat.innerHTML = '';
-        hideTyping();
+      document.getElementById('btnClear').onclick = function() {
+        hardReset();
         vscode.postMessage({ type: 'clear' });
-        renderWelcome();
       };
 
       // send manual/smart edit
       document.getElementById('btnSend').onclick = onSend;
 
-      input.addEventListener('keydown', (e) => {
+      input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
           onSend();
@@ -486,27 +696,24 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       function onSend() {
         if (isBusy) return;
 
-        const text = input.value.trim();
+        const text = String(input.value || '').trim();
         if (!text) return;
 
         input.value = '';
         append('user', text, true);
 
-        const wantsEdit = (() => {
-          const lower = text.toLowerCase();
-          return (
-            /(add|create|insert|append|augment|extend|remove|delete|update|change)/i.test(lower) ||
-            /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
-            /(hazard|loss|uca|constraint)/i.test(lower)
-          );
-        })();
+        const lower = text.toLowerCase();
+        const wantsEdit =
+          /(add|create|insert|append|augment|extend|remove|delete|update|change)/i.test(lower) ||
+          /(h\\d+|l\\d+|uca\\d+)/i.test(lower) ||
+          /(hazard|loss|uca|constraint)/i.test(lower);
 
         showTyping();
 
         if (wantsEdit) {
-          vscode.postMessage({ type: 'smartEdit', payload: { text } });
+          vscode.postMessage({ type: 'smartEdit', payload: { text: text } });
         } else {
-          vscode.postMessage({ type: 'manualPrompt', payload: { text } });
+          vscode.postMessage({ type: 'manualPrompt', payload: { text: text } });
         }
       }
 
@@ -544,7 +751,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       }
 
       // receive from extension
-      window.addEventListener('message', (event) => {
+      window.addEventListener('message', function(event) {
         const msg = event.data;
 
         if (msg.type === 'append') {
@@ -560,7 +767,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
             showTyping();
           } else {
             root.classList.remove('busy');
-            setTimeout(() => {
+            setTimeout(function() {
               if (!isBusy) hideTyping();
             }, 150);
           }
@@ -571,17 +778,19 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
           append('system', String(msg.payload), true);
         }
 
-        if (msg.type === 'reset') {
+        if (msg.type === 'showSmartEditPlan') {
           hideTyping();
-          chat.innerHTML = '';
-          vscode.setState({ messages: [] });
-          renderWelcome();
+          renderSmartEditPlan(msg.payload);
+        }
+
+        if (msg.type === 'reset') {
+          hardReset();
         }
 
         if (msg.type === 'guidedActions') {
           hideTyping();
 
-          const stage = msg.payload?.stage;
+          const stage = msg.payload && msg.payload.stage;
           if (!stage) return;
 
           if (stage === 'afterStep1') {
@@ -611,8 +820,17 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               { label: 'Generate Diagrams', action: 'generateDiagrams' }
             ]);
           }
+          
+          if (stage === 'confirmJumpGuidedFile') {
+            renderActionButtons('confirmJumpGuidedFile', [
+              { label: 'Confirm guided file', action: 'confirmJumpGuidedFile' },
+              { label: 'Cancel', action: 'openJumpMenu', secondary: true }
+            ]);
+          }
+
         }
       });
+      
     `;
 
     return `
