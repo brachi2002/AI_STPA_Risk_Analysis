@@ -1574,23 +1574,64 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// צריך לוודא שקיימים השלבים הקודמים
-			const need1 = pendingJump.targetStep >= 2;
-			const need2 = pendingJump.targetStep >= 3;
-			const need3 = pendingJump.targetStep >= 4;
+			// // צריך לוודא שקיימים השלבים הקודמים
+			// const need1 = pendingJump.targetStep >= 2;
+			// const need2 = pendingJump.targetStep >= 3;
+			// const need3 = pendingJump.targetStep >= 4;
 
-			if (need1 && !hasStep(guidedText, 1)) {
-				chatProvider.sendToWebview({ type: 'toast', payload: 'Step 1 not found in the guided file.' });
+			// if (need1 && !hasStep(guidedText, 1)) {
+			// 	chatProvider.sendToWebview({ type: 'toast', payload: 'Step 1 not found in the guided file.' });
+			// 	return;
+			// }
+			// if (need2 && !hasStep(guidedText, 2)) {
+			// 	chatProvider.sendToWebview({ type: 'toast', payload: 'Step 2 not found in the guided file.' });
+			// 	return;
+			// }
+			// if (need3 && !hasStep(guidedText, 3)) {
+			// 	chatProvider.sendToWebview({ type: 'toast', payload: 'Step 3 not found in the guided file.' });
+			// 	return;
+			// }
+
+			// Ensure previous steps exist; if not, offer options instead of failing hard.
+			const required: GuidedStep[] = [];
+			if (pendingJump.targetStep >= 2) required.push(1 as GuidedStep);
+			if (pendingJump.targetStep >= 3) required.push(2 as GuidedStep);
+			if (pendingJump.targetStep >= 4) required.push(3 as GuidedStep);
+
+
+			let missingStep: number | null = null;
+			let lastFound: number | null = null;
+
+			for (const s of required) {
+				if (!hasStep(guidedText, s)) {
+					missingStep = s;
+					break;
+				}
+				lastFound = s;
+			}
+
+			if (missingStep !== null) {
+				const target = pendingJump.targetStep;
+				const lf = lastFound ?? 0;
+
+				chatProvider.sendToWebview({
+					type: 'append',
+					payload: {
+						role: 'system',
+						text:
+							`Missing Step ${missingStep}. To jump to Step ${target}, the guided file must contain Steps 1..${target - 1}. ` +
+							(lf > 0 ? `Last found step: ${lf}.` : 'No previous steps were found.'),
+					},
+				});
+
+				chatProvider.sendToWebview({
+					type: 'guidedActions',
+					payload: { stage: 'jumpMissingSteps', missingStep, targetStep: target, lastFound: lf },
+				});
+
 				return;
 			}
-			if (need2 && !hasStep(guidedText, 2)) {
-				chatProvider.sendToWebview({ type: 'toast', payload: 'Step 2 not found in the guided file.' });
-				return;
-			}
-			if (need3 && !hasStep(guidedText, 3)) {
-				chatProvider.sendToWebview({ type: 'toast', payload: 'Step 3 not found in the guided file.' });
-				return;
-			}
+
 
 			// Build guidedSession from file + systemText
 			const step1Text = extractStepBlock(guidedText, 1) || undefined;
@@ -1616,15 +1657,116 @@ export function activate(context: vscode.ExtensionContext) {
 				step4Text,
 			};
 
+
+
 			const target = pendingJump.targetStep;
+
+			// If target step already exists, do NOT regenerate/continue.
+			if (hasStep(guidedText, target as GuidedStep)) {
+				guidedSession.currentStep = target as GuidedStep;
+				chatProvider.sendToWebview({
+					type: 'append',
+					payload: {
+						role: 'assistant',
+						text: `Step ${target} already exists in the guided file. What would you like to do?`,
+					},
+				});
+				chatProvider.sendToWebview({
+					type: 'guidedActions',
+					payload: { stage: 'jumpTargetExists', targetStep: target },
+				});
+				return;
+			}
 			pendingJump = null;
+
 
 			// עכשיו מריצים את ההמשך הרגיל
 			if (target === 2) await vscode.commands.executeCommand('stpa-agent.guided.continueStep2');
 			if (target === 3) await vscode.commands.executeCommand('stpa-agent.guided.continueStep3');
 			if (target === 4) await vscode.commands.executeCommand('stpa-agent.guided.continueStep4');
+
+			// // If the target step already exists in the guided file, offer options instead of regenerating.
+			// if (hasStep(guidedText, target as GuidedStep)) {
+			// 	chatProvider.sendToWebview({
+			// 		type: 'append',
+			// 		payload: {
+			// 			role: 'assistant',
+			// 			text: `Step ${target} already exists in the guided file. What would you like to do?`,
+			// 		},
+			// 	});
+
+			// 	chatProvider.sendToWebview({
+			// 		type: 'guidedActions',
+			// 		payload: { stage: 'jumpTargetExists', targetStep: target },
+			// 	});
+
+			// 	return;
+			// }
+
 		}
 	);
+
+	const guidedJumpContinueMissingCmd = vscode.commands.registerCommand(
+		'stpa-agent.guided.jumpContinueMissing',
+		async (missingStep: number) => {
+			if (!pendingJump) {
+				chatProvider.sendToWebview({ type: 'toast', payload: 'No pending jump request.' });
+				return;
+			}
+
+			// We keep pendingJump so user can still aim for the original target after continuing.
+			if (missingStep === 1) return vscode.commands.executeCommand('stpa-agent.guided.startStep1');
+			if (missingStep === 2) return vscode.commands.executeCommand('stpa-agent.guided.continueStep2');
+			if (missingStep === 3) return vscode.commands.executeCommand('stpa-agent.guided.continueStep3');
+			if (missingStep === 4) return vscode.commands.executeCommand('stpa-agent.guided.continueStep4');
+		}
+	);
+
+
+	const guidedOpenStepInFileCmd = vscode.commands.registerCommand(
+		'stpa-agent.guided.openStepInGuidedFile',
+		async (targetStep: GuidedStep) => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				chatProvider.sendToWebview({ type: 'toast', payload: 'Open the guided .md file first.' });
+				return;
+			}
+
+			const text = editor.document.getText();
+			const heading = `## Step ${targetStep}`;
+			const idx = text.indexOf(heading);
+			if (idx < 0) {
+				chatProvider.sendToWebview({ type: 'toast', payload: `Step ${targetStep} not found in the guided file.` });
+				return;
+			}
+
+			const pos = editor.document.positionAt(idx);
+			editor.selection = new vscode.Selection(pos, pos);
+			editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+		}
+	);
+
+	const guidedJumpEditTargetStepCmd = vscode.commands.registerCommand(
+		'stpa-agent.guided.jumpEditTargetStep',
+		async (targetStep: GuidedStep) => {
+			if (!guidedSession) {
+				chatProvider.sendToWebview({ type: 'toast', payload: 'No active guided session.' });
+				return;
+			}
+
+			guidedSession.currentStep = targetStep;
+
+			// Run the same edit command you use in the normal flow
+			await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
+
+			// Ensure the usual "afterStepX" buttons appear (same as normal flow)
+			chatProvider.sendToWebview({
+				type: 'guidedActions',
+				payload: { stage: `afterStep${targetStep}` },
+			});
+		}
+	);
+
 
 
 	// const guidedJumpCmd = vscode.commands.registerCommand('stpa-agent.guided.jumpToStep', async () => {
@@ -1739,8 +1881,10 @@ export function activate(context: vscode.ExtensionContext) {
 		jumpStep3Cmd,
 		jumpStep4Cmd,
 		guidedExplainCmd,
-
-		inlineDisp
+		guidedJumpContinueMissingCmd,
+		inlineDisp,
+		guidedOpenStepInFileCmd,
+		guidedJumpEditTargetStepCmd
 	);
 }
 

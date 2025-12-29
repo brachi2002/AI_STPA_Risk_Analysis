@@ -321,6 +321,10 @@ export async function promptOnIssues(result: ValidationResult): Promise<'continu
     if (result.issues.length === 0) {
         return 'continue';
     }
+    const actionable = result.issues.filter(i => i.severity !== 'info');
+    if (actionable.length === 0) {
+        return 'continue';
+    }
 
     // In mode B we never hard-block; just warn.
     const title = 'Pre-Check: items missing. Continue, refine, or auto-complete with AI?';

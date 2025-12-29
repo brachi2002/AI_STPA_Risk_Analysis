@@ -145,5 +145,6 @@ export async function generateAndInsertMissingSections(params: {
         editBuilder.replace(fullRange, updated);
     });
 
+    await vscode.window.activeTextEditor?.document.save();
     vscode.window.showInformationMessage('AI-completed sections were updated (single managed block).');
 }

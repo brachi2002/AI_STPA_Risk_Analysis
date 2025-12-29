@@ -83,16 +83,20 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               break;
 
             case 'continueStep2':
-              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 2);
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep2');
               break;
+
 
             case 'continueStep3':
-              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 3);
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep3');
               break;
 
+
+
             case 'continueStep4':
-              await vscode.commands.executeCommand('stpa-agent.guided.jumpInit', 4);
+              await vscode.commands.executeCommand('stpa-agent.guided.continueStep4');
               break;
+
 
             case 'editCurrentStep':
               await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
@@ -128,6 +132,15 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
             case 'jumpToStep':
               await vscode.commands.executeCommand('stpa-agent.guided.jumpToStep');
               break;
+
+            case 'jumpOpenExistingStep':
+              await vscode.commands.executeCommand('stpa-agent.guided.openStepInGuidedFile', msg.payload?.targetStep);
+              break;
+
+            case 'jumpEditTargetStep':
+              await vscode.commands.executeCommand('stpa-agent.guided.jumpEditTargetStep', msg.payload?.targetStep);
+              break;
+
 
             default:
               break;
@@ -518,9 +531,22 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               renderJumpMenu();
               return;
             }
-
+          
             showTyping();
-            vscode.postMessage({ type: 'guidedAction', payload: { action: btn.action } });
+            if (btn.action === 'jumpOpenExistingStep') {
+              vscode.postMessage({
+                type: 'guidedAction',
+                payload: { action: 'jumpOpenExistingStep', targetStep: window.__jumpTargetStep }
+              });
+            } else if (btn.action === 'jumpEditTargetStep') {
+              vscode.postMessage({
+                type: 'guidedAction',
+                payload: { action: 'jumpEditTargetStep', targetStep: window.__jumpTargetStep }
+              });
+            } else {
+              vscode.postMessage({ type: 'guidedAction', payload: { action: btn.action } });
+            }
+
           };
 
           row.appendChild(b);
@@ -626,11 +652,18 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       function renderJumpMenu() {
         renderActionButtons('jumpMenu', [
           { label: 'Step 1', action: 'startStep1' },
-          { label: 'Step 2', action: 'continueStep2' },
-          { label: 'Step 3', action: 'continueStep3' },
-          { label: 'Step 4', action: 'continueStep4' },
+          { label: 'Step 2', action: 'jumpStep2' },
+          { label: 'Step 3', action: 'jumpStep3' },
+          { label: 'Step 4', action: 'jumpStep4' },
         ]);
       }
+
+      function renderJumpFallbackButtons(groupId) {
+        renderActionButtons(groupId, [
+          { label: 'Back to Jump menu', action: 'openJumpMenu', secondary: true },
+        ]);
+      }
+
 
 
 
@@ -827,6 +860,46 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               { label: 'Cancel', action: 'openJumpMenu', secondary: true }
             ]);
           }
+
+          if (stage === 'jumpMissingSteps') {
+            const missing = Number(msg.payload && msg.payload.missingStep);
+
+            renderActionButtons('jumpMissingSteps', [
+              { label: 'Continue from Step ' + String(missing), action: 'jumpContinueMissing' },
+              { label: 'Confirm guided file', action: 'confirmJumpGuidedFile', secondary: true },
+              { label: 'Back to Jump menu', action: 'openJumpMenu', secondary: true },
+            ]);
+
+            // Store missing step temporarily in window state
+            window.__jumpMissingStep = missing;
+          }
+          
+          if (stage === 'jumpTargetExists') {
+            const target = Number(msg.payload && msg.payload.targetStep);
+
+            renderActionButtons('jumpTargetExists', [
+              { label: 'Open Step ' + String(target) + ' in the guided file', action: 'jumpOpenExistingStep' },
+              { label: 'Edit Step ' + String(target), action: 'editCurrentStep', secondary: true },
+              { label: 'Back to Jump menu', action: 'openJumpMenu', secondary: true },
+            ]);
+
+            window.__jumpTargetStep = target;
+          }
+
+          // Fallback: never get stuck without buttons on Jump-related stages
+          const looksLikeJumpStage =
+            String(stage || '').toLowerCase().includes('jump');
+
+          if (looksLikeJumpStage) {
+            // If no action-row was added for this stage, add a default one.
+            const existing = chat.querySelector('.action-row[data-group="' + stage + '"]');
+            if (!existing) {
+              renderJumpFallbackButtons(stage);
+            }
+          }
+
+
+
 
         }
       });
