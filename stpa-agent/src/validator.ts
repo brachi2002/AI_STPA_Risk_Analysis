@@ -128,7 +128,7 @@ export function validateInput(text: string, opts: ValidateOptions = {}): Validat
                 id: 'MISSING_ENVIRONMENT',
                 message: 'Operating environment / context not described.',
                 hint: 'Add where/when it operates (ODD): urban/highway/day/night/weather/indoor/etc.',
-                severity: 'info',
+                severity: 'warn',
             });
         }
 
@@ -137,7 +137,7 @@ export function validateInput(text: string, opts: ValidateOptions = {}): Validat
                 id: 'MISSING_ACTORS',
                 message: 'No primary actors/users detected.',
                 hint: 'Name the main human/operator roles and how they interact with the system.',
-                severity: 'info',
+                severity: 'warn',
             });
         }
 
@@ -146,7 +146,7 @@ export function validateInput(text: string, opts: ValidateOptions = {}): Validat
                 id: 'MISSING_BOUNDARY',
                 message: 'System boundary / in-scope vs out-of-scope not detected.',
                 hint: 'Add what is included/excluded and key assumptions/constraints.',
-                severity: 'info',
+                severity: 'warn',
             });
         }
 

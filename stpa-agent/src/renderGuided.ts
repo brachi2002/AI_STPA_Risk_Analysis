@@ -7,6 +7,108 @@ export function safeJsonParse<T = any>(text: string): T | null {
     }
 }
 
+// ---------------------------
+// General renderer (all steps)
+// ---------------------------
+
+type StepObj = { step?: number; reference?: string;[k: string]: any };
+
+function normalizeSteps(input: any): StepObj[] {
+    if (!input) return [];
+
+    // Case A: already a single step object { step: 1, ... }
+    if (typeof input === 'object' && !Array.isArray(input) && typeof input.step === 'number') {
+        return [input as StepObj];
+    }
+
+    // Case B: { steps: [ {step:1..}, {step:2..} ] }
+    if (typeof input === 'object' && !Array.isArray(input) && Array.isArray((input as any).steps)) {
+        return ((input as any).steps as any[]).filter(Boolean);
+    }
+
+    // Case C: { step1: {...}, step2: {...} } or { s1: {...} ... }
+    if (typeof input === 'object' && !Array.isArray(input)) {
+        const candidates: any[] = [];
+        for (const [k, v] of Object.entries(input)) {
+            if (!v || typeof v !== 'object') continue;
+            // accept common keys
+            if (/^step\d+$/i.test(k) || /^s\d+$/i.test(k) || k.toLowerCase() === 'step') {
+                candidates.push(v);
+            }
+            // also accept any object that looks like a step
+            if (typeof (v as any).step === 'number') candidates.push(v);
+        }
+        // de-dup by reference identity
+        return Array.from(new Set(candidates)) as StepObj[];
+    }
+
+    return [];
+}
+
+function renderOneStep(stepData: StepObj): string {
+    switch (stepData.step) {
+        case 1:
+            return [
+                '## Step 1 – Define Purpose of Analysis',
+                renderStep1Markdown(stepData),
+            ].join('\n');
+        case 2:
+            return [
+                '## Step 2 – Model the Control Structure',
+                renderStep2Markdown(stepData),
+            ].join('\n');
+        case 3:
+            return [
+                '## Step 3 – Identify Unsafe Control Actions',
+                renderStep3Markdown(stepData),
+            ].join('\n');
+        case 4:
+            return [
+                '## Step 4 – Identify Loss Scenarios',
+                renderStep4Markdown(stepData),
+            ].join('\n');
+        default:
+            // Unknown step: still show something minimal
+            return [
+                `## Step ${String(stepData.step ?? '?')}`,
+                stepData.reference ? `**Reference:** ${stepData.reference}\n` : '',
+                '_Unsupported or missing step renderer._',
+            ].join('\n');
+    }
+}
+
+/**
+ * Renders a full guided analysis markdown.
+ * Accepts either:
+ *  - a single step object { step: n, ... }
+ *  - an aggregate object { steps: [...] }
+ *  - an aggregate object { step1: {...}, step2: {...} }
+ */
+export function renderGuidedMarkdown(input: any): string {
+    const steps = normalizeSteps(input);
+
+    // If parsing failed or it's not structured: try to parse if it's a string JSON
+    if (!steps.length && typeof input === 'string') {
+        const parsed = safeJsonParse<any>(input);
+        if (parsed) return renderGuidedMarkdown(parsed);
+    }
+
+    const sorted = steps
+        .filter(s => typeof s?.step === 'number')
+        .sort((a, b) => (a.step as number) - (b.step as number));
+
+    const body = sorted.length
+        ? sorted.map(s => renderOneStep(s)).join('\n\n---\n\n')
+        : '_No guided STPA data found to render._';
+
+    return [
+        '# STPA Guided Analysis',
+        '',
+        body,
+        '',
+    ].join('\n');
+}
+
 export function renderStep1Markdown(data: any): string {
     const ref = data?.reference ? `**Reference:** ${data.reference}\n\n` : '';
     const losses = (data?.losses ?? []).map((l: any) => `- **${l.id}:** ${l.description}`).join('\n');

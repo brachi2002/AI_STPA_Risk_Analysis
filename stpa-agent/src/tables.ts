@@ -2,8 +2,8 @@
 import type { StpaResult } from './types';
 
 type LossRow = { id: string; text: string };
-type HazardRow = { id: string; text: string; relatedLosses: string[] };
-type UcaRow = { id: string; text: string; controlLoop?: string; relatedHazards: string[] };
+type HazardRow = { id: string; text: string; leadsToLosses: string[] };
+type UcaRow = { id: string; text: string; controlLoop?: string; leadsToHazards: string[] };
 
 function sanitizeCell(s: string): string {
     return s.replace(/\|/g, '\\|').trim();
@@ -25,10 +25,14 @@ export function parseHazardRow(line: string): HazardRow {
     const idm = line.match(/^H(\d+)\s*:\s*(.+)$/i);
     const id = idm ? `H${idm[1]}` : '';
     const meta = (line.match(/\(([^)]*)\)/) || [])[1] || '';
-    const rel = (meta.match(/related\s*:\s*([^)]+)/i) || [])[1] || '';
-    const relatedLosses = rel.split(',').map((s) => s.trim()).filter(Boolean);
+    // Expected format from your prompts: (leads_to: L1, L2, ...)
+    const leads = (meta.match(/leads_to\s*:\s*([^)]+)/i) || [])[1] || '';
+    const leadsToLosses = leads
+        .split(',')
+        .map((s) => s.trim())
+        .filter((x) => /^L\d+$/i.test(x));
     const text = line.replace(/\([^)]*\)/g, '').replace(/^H\d+\s*:\s*/i, '').trim();
-    return { id, text, relatedLosses };
+    return { id, text, leadsToLosses };
 }
 
 export function parseUcaRow(line: string): UcaRow {
@@ -36,10 +40,14 @@ export function parseUcaRow(line: string): UcaRow {
     const id = idm ? `UCA${idm[1]}` : '';
     const meta = (line.match(/\(([^)]*)\)/) || [])[1] || '';
     const cl = (meta.match(/control\s*loop\s*:\s*([^;)\]]+)/i) || [])[1];
-    const rel = (meta.match(/related\s*:\s*([^)]+)/i) || [])[1] || '';
-    const relatedHazards = rel.split(',').map((s) => s.trim()).filter(Boolean);
+    // Expected format from your Step 3 prompt: (leads_to: H1, H2)
+    const leads = (line.match(/\s*leads_to\s*:\s*([^)]+)/i) || [])[1] || '';
+    const leadsToHazards = leads
+        .split(',')
+        .map((s) => s.trim())
+        .filter((x) => /^H\d+$/i.test(x));
     const text = line.replace(/\([^)]*\)/g, '').replace(/^UCA\d+\s*:\s*/i, '').trim();
-    return { id, text, controlLoop: cl?.trim(), relatedHazards };
+    return { id, text, controlLoop: cl?.trim(), leadsToHazards };
 }
 
 export function buildMarkdownTables(result: StpaResult): string {
@@ -47,14 +55,52 @@ export function buildMarkdownTables(result: StpaResult): string {
     const hazRows: HazardRow[] = result.hazards.map(parseHazardRow);
     const ucaRows: UcaRow[] = result.ucas.map(parseUcaRow);
 
-    const lossesTbl = mdTable(['ID', 'Loss Description'],
-        lossRows.map((r) => [r.id || '-', r.text || '-']));
+    // 1) Build Loss -> Hazards index from hazards' (leads_to: L#...)
+    const lossToHazards = new Map<string, string[]>();
+    for (const h of hazRows) {
+        if (!h.id) continue;
+        for (const l of h.leadsToLosses) {
+            const arr = lossToHazards.get(l) ?? [];
+            if (!arr.includes(h.id)) arr.push(h.id);
+            lossToHazards.set(l, arr);
+        }
+    }
 
-    const hazardsTbl = mdTable(['ID', 'Hazard Description', 'Related Losses'],
-        hazRows.map((r) => [r.id || '-', r.text || '-', r.relatedLosses.join(', ') || '-']));
+    // 2) Build Hazard -> UCAs index from UCAs' (leads_to: H#...)
+    const hazardToUcas = new Map<string, string[]>();
+    for (const u of ucaRows) {
+        if (!u.id) continue;
+        for (const h of u.leadsToHazards) {
+            const arr = hazardToUcas.get(h) ?? [];
+            if (!arr.includes(u.id)) arr.push(u.id);
+            hazardToUcas.set(h, arr);
+        }
+    }
 
-    const ucasTbl = mdTable(['ID', 'UCA Description', 'Control Loop', 'Related Hazards'],
-        ucaRows.map((r) => [r.id || '-', r.text || '-', r.controlLoop || '-', r.relatedHazards.join(', ') || '-']));
+    const lossToHazTbl = mdTable(
+        ['Loss', 'Hazards (→ Loss)'],
+        lossRows.map((l) => {
+            const hazards = lossToHazards.get(l.id) ?? [];
+            return [l.id || '-', hazards.length ? hazards.join('; ') : '-'];
+        })
+    );
 
-    return ['## Losses', lossesTbl, '', '## Hazards', hazardsTbl, '', '## UCAs', ucasTbl, ''].join('\n');
+    const hazardToUcaTbl = mdTable(
+        ['Hazard', 'UCAs (→ Hazard)'],
+        hazRows
+            .filter((h) => !!h.id)
+            .map((h) => {
+                const ucas = hazardToUcas.get(h.id) ?? [];
+                return [h.id || '-', ucas.length ? ucas.join('; ') : '-'];
+            })
+    );
+
+    return [
+        '## Loss → Hazards',
+        lossToHazTbl,
+        '',
+        '## Hazard → UCAs',
+        hazardToUcaTbl,
+        '',
+    ].join('\n');
 }

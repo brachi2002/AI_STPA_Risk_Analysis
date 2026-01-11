@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import * as path from 'path';
 import * as fs from 'fs';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 // UI
 import { StpaChatViewProvider } from './chatView';
@@ -16,7 +16,7 @@ import { StpaChatViewProvider } from './chatView';
 import { validateInput, formatIssuesTable, promptOnIssues } from './validator';
 import { generateAndInsertMissingSections } from './aiQuickFix';
 import { registerInlineCompletion } from './inlineCompletion';
-import { applySmartEditPlan, smartEditFromChat, type SmartEditPlan } from './aiEdit';
+import { applySmartEditPlan, smartEditFromChat, type SmartEditPlan, type EditScope } from './aiEdit';
 
 // tables + diagrams + cs extract
 import { buildMarkdownTables } from './tables';
@@ -260,223 +260,191 @@ async function runModel(apiKey: string, prompt: string): Promise<StpaResult> {
  * Guided prompts (Handbook-oriented)
  * NOTE: guided file uses headings so aiEdit can find sections.
  * ----------------------------------------------- */
-function buildStep1Prompt(systemText: string, systemType: SystemType): string {
+// src/prompts.ts
+// English-only prompt strings (per project convention).
+
+
+/**
+ * STEP 1 (10/10 target)
+ * Key upgrades:
+ * - Hazards are CONTROLLED-PROCESS unsafe states/conditions (not "late / fails / misjudges / detect").
+ * - Constraints are observable system behaviors (shall/shall not), not "accuracy/performance".
+ * - Adds a Controlled-Process anchor + required state variables for better hazard wording.
+ * - Keeps your tables + traceability, but with stronger self-check language.
+ */
+export function buildStep1Prompt(systemText: string, systemType: SystemType): string {
 	return [
 		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
 		'',
 		'Perform STPA Step 1: Define the purpose of the analysis.',
-		'Reference: STPA Handbook (Nancy Leveson), Chapter 2, Step 1, p.15.',
+		'Reference: STPA Handbook (Nancy Leveson), Step 1 definitions.',
 		'',
-		'STEP 1 MUST PRODUCE:',
-		'1) Unacceptable losses (L#)',
-		'2) System-level hazards (H#) mapped ONLY to losses',
-		'3) System-level safety constraints (SC#) mapped ONLY to hazards',
-		'4) Exactly one refinement entry for EACH hazard (context only; no causes)',
+		`Domain / system type hint: ${systemType}.`,
 		'',
-		'MANDATORY DEFINITIONS:',
+		'PRIMARY GOAL:',
+		'- Produce academically credible Step 1 artifacts that can drive Step 2–4 without rework.',
+		'',
+		'MANDATORY DEFINITIONS (use exactly):',
 		'- Loss (L): an unacceptable outcome or harm to people, mission, property, environment, or public trust.',
-		'- Hazard (H): a SYSTEM STATE or SET OF CONDITIONS that, with worst-case environmental conditions, will lead to one or more losses.',
-		'- Safety Constraint (SC): a system-level requirement/restriction that prevents or mitigates a hazard.',
-		'- Hazard Refinement: operational context clarification ONLY (ODD, assumptions, worst-case conditions) WITHOUT causes, failures, control actions, UCAs, scenarios, sensors, software, or performance.',
+		'- Hazard (H): a system state or set of conditions of the CONTROLLED PROCESS that, with worst-case environmental conditions, will lead to one or more losses.',
+		'- Safety Constraint (SC): a system-level requirement/restriction on behavior that prevents or mitigates a hazard.',
+		'- Hazard Refinement: operational context / ODD / worst-case assumptions ONLY (no causes).',
 		'',
-		'====================',
-		'HAZARDS: STRICT RULES',
-		'====================',
-		'Hazards MUST describe ONLY an externally observable unsafe system/vehicle state (WHAT, not WHY).',
+		'CONTROLLED PROCESS ANCHOR (MANDATORY):',
+		'- Identify the controlled process implied by the system text (e.g., vehicle motion/spacing, medication delivery, industrial pressure/temperature, etc.).',
+		'- Hazards MUST describe unsafe STATES/CONDITIONS of that controlled process in the environment.',
 		'',
-		'FORBIDDEN HAZARD FORMS (MUST NOT APPEAR):',
-		'- "is in a state where"',
-		'- "is in a condition where"',
-		'- "is in a situation where"',
+		'HAZARDS (H#): 10/10 RULESET (HARD):',
+		'1) Hazards must be EXTERNALLY OBSERVABLE unsafe states/conditions (WHAT is unsafe), not internal reasons (WHY).',
+		'2) Hazards must NOT be phrased as "the system fails/does not/too late/misjudges/detects incorrectly". Those belong to Step 3/4.',
+		'3) Hazards should reference controlled-process variables when applicable:',
+		'   - Examples of variables: speed, distance gap, time-to-collision, pressure, temperature, dosage, position, energy exposure, access state, etc.',
+		'4) Hazards must be system-level, not component-level (no sensors/software/algorithms/networks).',
 		'',
-		'FORBIDDEN WORDS/CONCEPTS IN HAZARDS (rewrite until none appear):',
+		'FORBIDDEN IN HAZARDS (rewrite until none appear):',
 		'- failure / fails / failed',
-		'- delay / delayed / late',
-		'- insufficient / inadequate / ineffective',
-		'- detect / detected / detection / misinterpret / misjudgment',
-		'- performance / degradation / reliability',
-		'- sensor / software / algorithm / controller / integration / communication / network',
-		'- causal wording: because, due to, caused by, results from',
+		'- too late / late / delay / delayed',
+		'- does not / not apply / not provide / missing (when used as an action mistake)',
+		'- detect / detection / mis-detect / misjudge / inaccurate / accuracy',
+		'- sensor / camera / radar / lidar / software / algorithm / controller / network / communication',
+		'- causal wording: because / due to / caused by / results from',
 		'',
-		'MANDATORY HAZARD SENTENCE FORM (MUST MATCH EXACTLY):',
-		'"The vehicle or system <ALLOWED_DANGEROUS_STATE_PHRASE> while <operational context>."',
+		'MANDATORY HAZARD SENTENCE FORM:',
+		'"The controlled process <UNSAFE_STATE_PHRASE> while <operational context>. (leads_to: L#, L#)"',
 		'',
-		'ALLOWED_DANGEROUS_STATE_PHRASES (COPY VERBATIM; USE ONLY THESE):',
-		'- remains on a collision trajectory',
-		'- collision risk exists',
-		'- enters a loss-of-control or unstable state',
-		'- applies emergency braking when no collision threat exists',
-		'- does not apply emergency braking when a collision threat exists',
-		'- does not warn the driver during an imminent collision situation',
+		'UNSAFE_STATE_PHRASE RULES:',
+		'- 3–14 words, externally observable, state/condition only.',
+		'- Examples of acceptable patterns (adapt, do NOT copy blindly):',
+		'  • "maintains unsafe separation distance to a person"',
+		'  • "closes on an obstacle with insufficient deceleration"',
+		'  • "operates with braking demand exceeding available traction"',
+		'  • "releases hazardous energy beyond safe limits"',
+		'  • "executes an irreversible action on the wrong target"',
+		'  • "presents no effective warning when collision risk is imminent" (warning is observable state)',
 		'',
-		'HAZARD GRAMMAR RULE (MANDATORY):',
-		'- After "The vehicle or system" you MUST paste ONE allowed phrase exactly as written above (no extra words).',
-		'- Example for "collision risk exists":',
-		'  "The vehicle or system collision risk exists while <context>."',
+		'REFINED HAZARDS:',
+		'- Exactly one refinement line per hazard.',
+		'- Refinement adds ODD + worst-case assumptions (weather, visibility, workload, traffic density, etc.).',
+		'- No causes, no failures, no components.',
 		'',
-		'IMPORTANT (HUMAN CONTEXT PLACEMENT):',
-		'- Do NOT use driver internal state (e.g., "driver distracted") inside Hazards.',
-		'- If relevant, include such human context ONLY in the corresponding hazard refinement line.',
+		'SAFETY CONSTRAINTS (SC#): 10/10 RULESET (HARD):',
+		'1) Constraints must be system-level "shall/shall not" statements describing OBSERVABLE required/forbidden behavior.',
+		'2) Constraints must directly prevent/mitigate the hazard state (match the unsafe state).',
+		'3) Do NOT prescribe internal design solutions (no sensors/software/algorithms).',
 		'',
-		'================================',
-		'SAFETY CONSTRAINTS: STRICT RULES',
-		'================================',
-		'Constraints MUST be system-level "shall/shall not" requirements that directly prevent/mitigate the referenced hazard(s).',
-		'Constraints MUST NOT be design/architecture solutions.',
+		'FORBIDDEN IN CONSTRAINTS (rewrite until none appear):',
+		'- detect / detection / false positives / false negatives',
+		'- sensor / software / algorithm / controller / network / communication',
+		'- accuracy / assessment quality / performance / reliability / robust',
 		'',
-		'FORBIDDEN WORDS/CONCEPTS IN SAFETY CONSTRAINTS (MUST NOT APPEAR):',
-		'- detect / detected / detection',
-		'- false positive(s) / false negative(s)',
-		'- sensor / software / algorithm / controller / integration / integrate / interface / communication / network / ADAS',
-		'- performance / reliability / robust / effectively / appropriate / optimize / minimize / maximize',
-		'- accurate / accurately / assessment / assessed',
+		'LOSS COVERAGE RULE (HARD):',
+		'- Every Loss Li MUST appear in at least one hazard (leads_to: ... Li ...).',
+		'- If you cannot link a loss, remove it OR rewrite hazards so it is legitimately covered.',
 		'',
-		'FORBIDDEN EXAMPLES (SC) — MUST REWRITE IF PRESENT:',
-		'- INCORRECT: "when an obstacle is detected", "operate effectively", "integrate with ADAS", "assessed accurately"',
-		'- CORRECT: "while approaching a stationary object", "under low light and adverse weather within the defined operating domain"',
+		'COMPLETENESS MINIMUMS:',
+		'- Losses: at least 5',
+		'- Hazards: at least 6',
+		'- Safety Constraints: at least 8',
 		'',
-		'CONSTRAINT OBSERVABILITY RULE (MANDATORY):',
-		'- Each SC must state an observable required/forbidden behavior at the vehicle/system level.',
-		'- Do NOT specify internal qualities (accuracy, assessment quality, performance, detection quality).',
+		'DERIVED TABLES (MUST BE CONSISTENT, NO INVENTION):',
+		'- Table A: Loss -> Hazards derived ONLY from (leads_to). Use "; " between IDs.',
+		'- Table B: Hazard -> Safety Constraints derived ONLY from (addresses). Use "; " between IDs.',
 		'',
-		'CONSTRAINT-TO-HAZARD MATCH RULE (MANDATORY):',
-		'- If a hazard uses the phrase "does not warn the driver...", the addressing constraints MUST require warning behavior.',
-		'- For all other hazards, constraints MUST be phrased as prevention/mitigation of the hazardous state (avoid "provide warnings" as the primary constraint unless the hazard is warning-related).',
-		'',
-		'SAFETY CONSTRAINT COUNT RULE (MANDATORY):',
-		'- You MUST output at least 8 safety constraints: SC1..SC8 (or more).',
-		'',
-		'HARD FAIL RULE:',
-		'- If ANY forbidden word appears in ANY safety constraint, you MUST rewrite that constraint BEFORE returning the final output.',
-		'',
-		'====================',
-		'TRACEABILITY CHECKS',
-		'====================',
-		'- Every hazard MUST map ONLY to Loss IDs using: (leads_to: L#, L#...).',
-		'- Every constraint MUST map ONLY to Hazard IDs using: (addresses: H#, H#...).',
-		'- Hazards MUST NOT map to hazards.',
-		'',
-		'LOSS COVERAGE RULE (MANDATORY):',
-		'- Every Loss Li listed MUST appear in at least one hazard (leads_to: ... Li ...).',
-		'- If a Loss cannot be linked to any hazard, you MUST NOT keep it as a Loss.',
-		'  Instead, move it into "=== MISSING INFORMATION ===" as a question/assumption issue, OR rewrite hazards to include it correctly.',
-		'',
-		'============================',
-		'COMPLETENESS (MINIMUMS)',
-		'============================',
-		'- Losses: at least 5 (add more if needed, but obey LOSS COVERAGE RULE).',
-		'- Hazards: at least 6 (add more if needed).',
-		'- Safety Constraints: at least 8 (add more if needed).',
-		'- Refinements: exactly one refinement line for EACH hazard listed.',
-		'',
-		'===========================',
-		'REFINED HAZARDS: STYLE RULE',
-		'===========================',
-		'- Each refinement must be a short ODD + worst-case context statement.',
-		'- Do NOT include causes, failures, internal mechanisms, sensors, software, or performance.',
-		'- Avoid "in a situation/scenario where"; use direct context phrasing (approaching..., with..., during...).',
-		'',
-		'===========================',
-		'SUMMARY TABLE: DERIVED RULES',
-		'===========================',
-		'The summary table MUST be derived from your mappings (no invention):',
-		'',
-		'SUMMARY TABLE BUILD ALGORITHM (MANDATORY):',
-		'1) For each loss Li, scan all hazards and collect ALL Hj that list Li in (leads_to).',
-		'2) For that Li, scan all constraints and collect ALL SCk that address ANY of those Hj.',
-		'3) Write the row using exactly those sets (no omissions, no extras).',
-		'4) If any row violates steps 1–3, you MUST fix the table (or mappings) before returning.',
-		'',
-		'====================',
-		'FINAL SELF-CHECK',
-		'====================',
-		'Before returning, you MUST verify and fix until ALL are true:',
-		'1) Every hazard matches the hazard sentence form and uses ONLY allowed phrases.',
-		'2) No hazard contains forbidden words/concepts.',
-		'3) No constraint contains forbidden words/concepts (especially effectively / integrate / ADAS / detection / accurate).',
-		'4) Every hazard has exactly one refinement line and it contains ONLY context.',
-		'5) Every Loss is covered by at least one hazard (LOSS COVERAGE RULE).',
-		'6) The summary table matches the leads_to and addresses mappings exactly.',
+		'FINAL SELF-CHECK (DO NOT SKIP):',
+		'1) Each hazard is a controlled-process unsafe state/condition (not an action mistake).',
+		'2) No forbidden terms appear in hazards or constraints.',
+		'3) Every hazard maps ONLY to Loss IDs, every constraint maps ONLY to Hazard IDs.',
+		'4) Every hazard has exactly one refinement line (context only).',
+		'5) Tables exactly match the mappings.',
 		'',
 		'OUTPUT REQUIREMENTS:',
 		'- Output ONLY the sections below, in this exact order.',
 		'- Output MUST start with "=== LOSSES ===" and contain no text before it.',
-		'- Use EXACT headings and line formats. Do NOT add extra headings or prose.',
 		'',
 		'=== LOSSES ===',
 		'L1: <unacceptable outcome/harm>',
-		'L2: <unacceptable outcome/harm>',
-		'L3: <unacceptable outcome/harm>',
-		'L4: <unacceptable outcome/harm>',
-		'L5: <unacceptable outcome/harm>',
-		'...',
+		'L2: <...>',
 		'',
 		'=== HAZARDS ===',
-		'H1: The vehicle or system <ALLOWED_DANGEROUS_STATE_PHRASE> while <operational context>. (leads_to: L#, L#)',
+		'H1: The controlled process <unsafe_state_phrase> while <operational context>. (leads_to: L#, L#)',
 		'H2: ...',
-		'...',
 		'',
 		'=== SAFETY CONSTRAINTS ===',
-		'SC1: The system shall ... (addresses: H#)',
+		'SC1: The system shall/shall not <observable behavior>. (addresses: H#)',
 		'SC2: ...',
-		'...',
 		'',
 		'=== REFINED HAZARDS ===',
 		'H1 refinement: <ODD + worst-case context only>',
 		'H2 refinement: ...',
-		'...',
 		'',
 		'=== MISSING INFORMATION ===',
 		'- None or clarification questions',
 		'',
-		'=== SUMMARY TABLE ===',
-		'| Losses | Hazards (→ Losses) | Safety Constraints (→ Hazards) |',
-		'| --- | --- | --- |',
-		'| L# | H# (→ L#...); ... | SC# (→ H#...); ... |',
+		'=== TABLE A: LOSS TO HAZARDS ===',
+		'| Loss | Hazards |',
+		'| --- | --- |',
+		'| L# | H#; H# |',
 		'',
-		`Domain hints: ${systemType}.`,
+		'=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===',
+		'| Hazard | Safety Constraints |',
+		'| --- | --- |',
+		'| H# | SC#; SC# |',
 		'',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-	].join('\\n');
+	].join('\n');
 }
 
-
-
-function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text: string): string {
+/**
+ * STEP 2 (10/10 target)
+ * Key upgrades:
+ * - Forces "information content" feedback naming (no generic "status").
+ * - Requires at least one fully closed loop; encourages a driver/HMI loop only if implied.
+ * - Prevents inventing components; uses Missing Information for required-but-unclear signals.
+ */
+export function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text: string): string {
 	return [
 		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
 		'',
 		'Perform STPA Step 2: Model the hierarchical control structure.',
-		'Reference: STPA Handbook (Nancy Leveson), page 22, Figure 2.5.',
+		'Reference: STPA Handbook guidance on control structures and closed-loop control.',
 		'',
-		'GOAL (MUST ACHIEVE):',
-		'- Produce a COMPLETE hierarchical control structure suitable for Step 3 (UCAs).',
-		'- Explicitly define at least one CLOSED control loop:',
-		'  Controller → Control Action(s) → Actuator(s) → Controlled Process → Feedback(s) → Controller.',
-		'',
-		'INPUTS:',
 		`Domain / system type: ${systemType}.`,
 		'',
-		'Use Step 1 ONLY for consistency (read-only). Do NOT modify Step 1 content:',
+		'GOAL (MUST ACHIEVE):',
+		'- Produce a COMPLETE control structure that is sufficient to derive UCAs in Step 3.',
+		'- Provide at least one CLOSED control loop:',
+		'  Controller → Control Action(s) → Actuator(s) → Controlled Process → Feedback(s) → Controller.',
+		'',
+		'READ-ONLY INPUTS (do not modify):',
 		'--- STEP 1 START ---',
 		step1Text,
 		'--- STEP 1 END ---',
 		'',
-		'System description (source of truth):',
+		'SOURCE OF TRUTH SYSTEM DESCRIPTION:',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
 		'',
 		'STRICT RULES:',
 		'- Use ONLY information explicitly stated or clearly implied by the system description.',
-		'- Do NOT invent components, users, networks, or features not present or implied.',
-		'- If something is unclear but necessary for a complete loop, add it under "=== MISSING INFORMATION ===" as a question.',
+		'- Do NOT invent components, users, networks, sensors, features, or organizations not present/implied.',
+		'- If something is necessary for a closed loop but unclear, add it as a question under MISSING INFORMATION.',
 		'',
-		'CRITICAL DISTINCTION (MUST FOLLOW):',
-		'- Do NOT label a control unit as an actuator if it is a decision-making entity.',
-		'- If there is both a decision element and a physical mechanism, model them separately (controller vs actuator).',
+		'CRITICAL DISTINCTIONS:',
+		'- Controller = decision-making entity (human/software/device/organization).',
+		'- Actuator = physical/effecting mechanism that changes the controlled process.',
+		'- Sensor = measures the controlled process or environment and produces information used by controllers.',
+		'',
+		'FEEDBACK QUALITY RULE (HARD):',
+		'- Feedback signals must NOT be generic labels like "status signal".',
+		'- Name the information content (examples: speed estimate, acceleration, brake pressure, wheel slip, distance gap, TTC, temperature, flow rate, access state).',
+		'- If the system text implies specific feedback items (e.g., wheel slip), represent them explicitly.',
+		'',
+		'CONTROL ACTION QUALITY RULE (HARD):',
+		'- Control actions must be commands/communications issued by controllers.',
+		'- Use action verbs and keep them observable (e.g., "Command braking deceleration", "Issue collision warning").',
 		'',
 		'OUTPUT FORMAT REQUIREMENTS (MUST FOLLOW EXACTLY):',
 		'- Output MUST be editable Markdown.',
@@ -510,8 +478,8 @@ function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text:
 		'CA4: C2 -> <action>',
 		'',
 		'=== FEEDBACK ===',
-		'F1: <from> -> C1 : <signal> - <notes>',
-		'F2: <from> -> C2 : <signal> - <notes>',
+		'F1: <from> -> C1 : <signal_name> - <information content notes>',
+		'F2: <from> -> C2 : <signal_name> - <information content notes>',
 		'',
 		'=== CONTROL_LOOPS ===',
 		'LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]',
@@ -527,19 +495,30 @@ function buildStep2Prompt(systemText: string, systemType: SystemType, step1Text:
 	].join('\n');
 }
 
-
-function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string): string {
+/**
+ * STEP 3 (10/10 target)
+ * Key upgrades:
+ * - Enforces "UCA must align to hazard meaning" (warning UCAs map to warning hazards, etc.).
+ * - Requires minimum coverage: at least 1 UCA per control action.
+ * - Prevents failure-language; keeps it an unsafe action in context.
+ */
+export function buildStep3Prompt(
+	systemText: string,
+	systemType: SystemType,
+	step1Text: string,
+	step2Text: string
+): string {
 	return [
 		'You are an expert safety engineer performing Systems-Theoretic Process Analysis (STPA).',
 		'',
 		'Perform STPA Step 3: Identify Unsafe Control Actions (UCAs).',
-		'Reference: STPA Handbook (Nancy Leveson), page 35.',
-		'',
-		'GOAL (MANDATORY):',
-		'- UCAs must be derived ONLY from control actions defined in Step 2.',
-		'- UCAs must map ONLY to hazards defined in Step 1 (H#).',
+		'Reference: STPA Handbook Step 3 UCA categories.',
 		'',
 		`Domain / system type: ${systemType}.`,
+		'',
+		'GOAL (HARD):',
+		'- UCAs must be derived ONLY from control actions defined in Step 2.',
+		'- UCAs must map ONLY to hazards defined in Step 1 (H#).',
 		'',
 		'READ-ONLY INPUTS (do not modify):',
 		'--- STEP 1 START ---',
@@ -554,20 +533,29 @@ function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text:
 		systemText,
 		'--- SYSTEM TEXT END ---',
 		'',
-		'UCA CATEGORIES (as applicable):',
+		'UCA CATEGORIES:',
 		'A) omission (not providing the control action when required)',
 		'B) commission (providing the control action when not appropriate)',
-		'C) timing/sequence (too early, too late, or out of order)',
+		'C) timing/sequence (too early, too late, out of order)',
 		'D) duration (applied too long or stopped too soon)',
 		'',
-		'UCA FORMULATION RULES (STRICT):',
-		'- Each UCA must be phrased as an unsafe control action in context (not as a failure/cause).',
-		'- Do NOT use: "fails to", "due to", "because of", "sensor error", "mis-detection".',
-		'- Each UCA must explicitly reference:',
-		'  • controller_id (C#)',
-		'  • control_action_id (CA#)',
-		'  • a specific operational context',
-		'  • one or more hazards (H#)',
+		'SYSTEMATIC COVERAGE (MANDATORY):',
+		'- For EACH control action CA# in Step 2, produce at least ONE UCA.',
+		'- Produce additional UCAs only if they introduce genuinely different unsafe contexts.',
+		'',
+		'UCA FORMULATION RULES (HARD):',
+		'- Each UCA must be phrased as an unsafe control action IN CONTEXT (not a cause analysis).',
+		'- Forbidden phrasing: "fails to", "due to", "because of", "sensor error", "mis-detection", "bug".',
+		'- Each UCA must explicitly include:',
+		'  • type: omission|commission|timing|duration',
+		'  • controller: C#',
+		'  • control_action: CA#',
+		'  • specific operational context (ODD, workload, environment, mode, etc.)',
+		'  • (leads_to: H#; H#) mapping that matches the UCA meaning',
+		'',
+		'MEANING ALIGNMENT RULE (HARD):',
+		'- If a UCA is about warning/alerting, it must map to hazards about insufficient/absent warning state (not braking/actuation hazards).',
+		'- If a UCA is about applying physical control, it must map to hazards about unsafe controlled-process states (distance, energy, traction, etc.).',
 		'',
 		'OUTPUT FORMAT REQUIREMENTS (MUST FOLLOW EXACTLY):',
 		'- Output MUST be editable Markdown.',
@@ -575,7 +563,7 @@ function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text:
 		'- Do NOT include extra headings, prose, or analysis outside the sections.',
 		'',
 		'=== UCAS ===',
-		'UCA1: (type: omission) (controller: C1) (control_action: CA1) <unsafe action in context>. (leads_to: H1, H2)',
+		'UCA1: (type: omission) (controller: C1) (control_action: CA1) <unsafe action in context>. (leads_to: H1; H2)',
 		'UCA2: (type: commission) (controller: C1) (control_action: CA2) <unsafe action in context>. (leads_to: H3)',
 		'UCA3: (type: timing) (controller: C2) (control_action: CA3) <unsafe action in context>. (leads_to: H4)',
 		'UCA4: (type: duration) (controller: C2) (control_action: CA4) <unsafe action in context>. (leads_to: H5)',
@@ -591,19 +579,31 @@ function buildStep3Prompt(systemText: string, systemType: SystemType, step1Text:
 	].join('\n');
 }
 
-
-function buildStep4Prompt(systemText: string, systemType: SystemType, step1Text: string, step2Text: string, step3Text: string): string {
+/**
+ * STEP 4 (10/10 target)
+ * Key upgrades:
+ * - Anti-duplication (explicitly forbids near-duplicates).
+ * - Forces scenario diversity across factor categories.
+ * - Requires concrete factor statements (observable consequence), not vague filler.
+ * - Uses ONLY existing IDs.
+ */
+export function buildStep4Prompt(
+	systemText: string,
+	systemType: SystemType,
+	step1Text: string,
+	step2Text: string,
+	step3Text: string
+): string {
 	return [
 		'You are an expert STPA analyst producing an academic-quality Step 4 output.',
 		'',
-		'Perform STPA Step 4 according to the STPA Handbook (Leveson).',
-		'Reference: STPA Handbook, page 42.',
-		'',
-		'GOAL (Step 4):',
-		'- Identify loss scenarios (causal factors) that can lead to existing UCAs and/or directly to Hazards.',
-		'- Each scenario MUST be traceable: LS -> UCA(s) -> Hazard(s) -> Loss(es).',
+		'Perform STPA Step 4 (Loss Scenarios) according to the STPA Handbook.',
 		'',
 		`Domain / system type: ${systemType}.`,
+		'',
+		'GOAL (Step 4):',
+		'- Identify causal loss scenarios that can lead to existing UCAs and/or directly to Hazards.',
+		'- Each scenario MUST be traceable: LS -> UCA(s) -> Hazard(s) -> Loss(es).',
 		'',
 		'READ-ONLY INPUTS (do not modify):',
 		'--- STEP 1 START ---',
@@ -623,14 +623,31 @@ function buildStep4Prompt(systemText: string, systemType: SystemType, step1Text:
 		systemText,
 		'--- SYSTEM TEXT END ---',
 		'',
-		'STRICT CONSISTENCY RULES:',
-		'- Do NOT invent new UCAs, Hazards, Losses, Controllers, Sensors, Actuators, Controlled Processes, or Control Actions.',
+		'STRICT CONSISTENCY RULES (HARD):',
+		'- Do NOT invent new UCAs, Hazards, Losses, Controllers, Sensors, Actuators, Controlled Processes, Control Actions, or Loops.',
 		'- Use ONLY IDs that already exist in Steps 1–3.',
 		'',
 		'REQUIRED OUTPUT CONTENT:',
 		'- Produce AT LEAST 10 scenarios (LS1..LS10).',
-		'- Each scenario MUST include: linked_ucas, linked_hazards, linked_losses, and control_loop_trace (IDs).',
-		'- Provide causal factors grouped by categories (controller/feedback/actuator/process/human/communication/environment).',
+		'- Each scenario MUST include: linked_ucas, linked_hazards, linked_losses, and trace (IDs).',
+		'- Each scenario MUST include factors grouped by categories:',
+		'  controller_process_model, feedback_and_sensing, actuator_and_control_path, controlled_process_and_dynamics, human_and_organization, communication_and_coordination, environment_and_disturbances',
+		'',
+		'UNIQUENESS (HARD, 10/10 REQUIREMENT):',
+		'- Do NOT produce near-duplicate scenarios. No reworded repeats.',
+		'- Each LS must introduce at least ONE distinct causal mechanism compared to all previous LS entries.',
+		'',
+		'DIVERSITY TARGET (MANDATORY ACROSS THE SET):',
+		'- At least 2 scenarios dominated by incorrect/insufficient controller process model.',
+		'- At least 2 dominated by missing/incorrect/stale feedback & sensing (without naming internal implementation).',
+		'- At least 2 dominated by actuator/control path issues (command not transmitted, overridden, limited authority, etc.).',
+		'- At least 2 dominated by controlled-process dynamics/physical limits (traction, inertia, saturation, delays).',
+		'- At least 2 dominated by human/organization/coordination factors (handoff, mode confusion, workload), if humans exist in Step 2/3.',
+		'',
+		'FACTOR QUALITY RULE (HARD):',
+		'- Factors must be concrete and testable (observable consequence), not vague fillers.',
+		'- Avoid: "ineffective", "slow processing", "poor system".',
+		'- Prefer: "feedback reflects stale value", "control action issued with insufficient lead time", "authority limited by friction", "warning masked by noise".',
 		'',
 		'OUTPUT FORMAT REQUIREMENTS (MUST FOLLOW EXACTLY):',
 		'- Output MUST be editable Markdown.',
@@ -653,10 +670,13 @@ function buildStep4Prompt(systemText: string, systemType: SystemType, step1Text:
 		'- <question or clarification needed, if any>',
 		'',
 		'=== SUMMARY TABLE ===',
-		'Provide ONE concise markdown table with columns:',
-		'| LS | UCAs | Hazards | Losses | Control loop | Key causal factors |',
+		'Output EXACTLY one markdown table and nothing else in this section.',
+		'No extra text is allowed in the SUMMARY TABLE section.',
+		'The first five columns MUST contain ONLY IDs separated by "; ".',
+		'The "Key factors" column must contain only short keywords (2–6 words), not sentences.',
+		'| LS | UCAs | Hazards | Losses | Control loop | Key factors |',
 		'| --- | --- | --- | --- | --- | --- |',
-		'| LS1 | UCA1 | H1 | L1 | C1/CA1/A1/P1 | feedback delay; incorrect process model |',
+		'| LS1 | UCA1; UCA2 | H1; H2 | L1; L2 | C1; CA1; A1; P1 | stale feedback; traction limit |',
 	].join('\n');
 }
 
@@ -776,7 +796,7 @@ function extractStepBlock(text: string, step: GuidedStep): string | null {
 	);
 
 	const m = text.match(rx);
-	if (!m) return null;
+	if (!m) { return null; }
 	return (m[1] || '').trim();
 }
 
@@ -793,10 +813,96 @@ let lastContext: {
 	project?: ProjectInfo;
 } | null = null;
 
+function getGuidedDiagramPaths(project: ProjectInfo) {
+	return {
+		csPath: path.join(project.dir, `${project.baseName}_cs.mmd`),
+		impactPath: path.join(project.dir, `${project.baseName}_impact.mmd`),
+		jsonPath: path.join(project.dir, `${project.baseName}_stpa.json`),
+	};
+}
+
+function readResultFromJson(jsonPath: string): StpaResult | null {
+	if (!fs.existsSync(jsonPath)) return null;
+	try {
+		const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+		return {
+			losses: Array.isArray(parsed?.losses) ? parsed.losses : [],
+			hazards: Array.isArray(parsed?.hazards) ? parsed.hazards : [],
+			ucas: Array.isArray(parsed?.ucas) ? parsed.ucas : [],
+			raw: typeof parsed?.raw === 'string' ? parsed.raw : '',
+		};
+	} catch {
+		return null;
+	}
+}
+
+function loadGuidedDiagramsFromDisk(session: GuidedSession): boolean {
+	const { csPath, impactPath, jsonPath } = getGuidedDiagramPaths(session.project);
+	if (!fs.existsSync(csPath) || !fs.existsSync(impactPath)) { return false; }
+
+	const sameProject =
+		lastContext?.project?.baseName === session.project.baseName &&
+		lastContext?.project?.dir === session.project.dir;
+	const hasMermaidsInContext = !!lastContext?.csMermaid && !!lastContext?.impactMermaid;
+
+	if (!sameProject || !hasMermaidsInContext) {
+		const csMermaid = fs.readFileSync(csPath, 'utf-8');
+		const impactMermaid = fs.readFileSync(impactPath, 'utf-8');
+		const result = readResultFromJson(jsonPath) || { losses: [], hazards: [], ucas: [], raw: '' };
+
+		lastContext = {
+			systemType: session.systemType,
+			result,
+			csMermaid,
+			impactMermaid,
+			project: session.project,
+		};
+	}
+
+	return true;
+}
+
+async function generateDiagramsForGuidedSession(apiKey: string, session: GuidedSession): Promise<void> {
+	const prompt = buildStpaPrompt({ systemType: session.systemType, text: session.systemText });
+	const result = await runModel(apiKey, prompt);
+
+	const cs = deriveControlStructFromText(session.systemText);
+	const csMermaid = buildControlStructureMermaid(cs);
+	const impactMermaid = buildImpactGraphMermaid(result);
+
+	lastContext = {
+		systemType: session.systemType,
+		result,
+		cs,
+		csMermaid,
+		impactMermaid,
+		project: session.project,
+	};
+
+	const md = buildMarkdownReport(lastContext);
+
+	await saveResultAsJSON(result, session.project);
+	await saveMarkdownReport(md, session.project);
+	await saveMermaidDiagrams(session.project, csMermaid, impactMermaid);
+}
+
+export const __test__ = {
+	getGuidedDiagramPaths,
+	readResultFromJson,
+	loadGuidedDiagramsFromDisk,
+	generateDiagramsForGuidedSession,
+	getLastContext: () => lastContext,
+	setLastContext: (ctx: typeof lastContext) => {
+		lastContext = ctx;
+	},
+	runModel,
+};
+
 /** ===========================================================
  * Activate
  * =========================================================== */
 export function activate(context: vscode.ExtensionContext) {
+	console.log('stpa-ext: activate start');
 	const extRoot = vscode.Uri.joinPath(context.extensionUri, '').fsPath;
 	loadEnvFromExtension(extRoot);
 
@@ -822,6 +928,16 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(stpaAddedGreenDecoration);
+
+	const applyGreenDecoration = (editor: vscode.TextEditor | undefined, ranges: vscode.Range[] | undefined) => {
+		if (!editor || !ranges?.length) return;
+		editor.setDecorations(stpaAddedGreenDecoration, ranges);
+		setTimeout(() => {
+			try {
+				editor.setDecorations(stpaAddedGreenDecoration, []);
+			} catch { }
+		}, 12000);
+	};
 
 
 	/** --------------------------------------------
@@ -1093,58 +1209,177 @@ export function activate(context: vscode.ExtensionContext) {
 	/** --------------------------------------------
 	 * Smart Edit command (shared)
 	 * -------------------------------------------- */
-	const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction?: string) => {
-		try {
-			if (!instruction || !instruction.trim()) return 'No instruction provided.';
+	// const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction?: string) => {
+	// 	try {
+	// 		if (!instruction || !instruction.trim()) return 'No instruction provided.';
+	// 		const scope: EditScope | undefined = guidedSession
+	// 			? {
+	// 				step: guidedSession.currentStep,
+	// 				// כרגע זה בעיקר בשביל תוכניות תיקון של Step 1; שאר האכיפה תהיה לפי טווח שורות
+	// 				allowedSections: ['LOSSES', 'HAZARDS', 'SAFETY_CONSTRAINTS', 'REFINED_HAZARDS'],
+	// 			}
+	// 			: undefined;
 
-			const { applied, ranges, plan } = await smartEditFromChat(instruction);
+	// 		const { applied, ranges, plan } = await smartEditFromChat(instruction, undefined, scope);
 
-			// Paint only newly inserted/replaced ranges in green
-			const editor = vscode.window.activeTextEditor;
-			if (editor) {
-				stpaAddedGreenDecoration && editor.setDecorations(stpaAddedGreenDecoration, ranges || []);
+	// 		// Paint only newly inserted/replaced ranges in green
+	// 		const editor = vscode.window.activeTextEditor;
+	// 		if (editor) {
+	// 			stpaAddedGreenDecoration && editor.setDecorations(stpaAddedGreenDecoration, ranges || []);
 
-				// Optional: clear highlights after 12 seconds
-				if (ranges?.length) {
-					setTimeout(() => {
-						try { editor.setDecorations(stpaAddedGreenDecoration, []); } catch { }
-					}, 12000);
+	// 			// Optional: clear highlights after 12 seconds
+	// 			if (ranges?.length) {
+	// 				setTimeout(() => {
+	// 					try { editor.setDecorations(stpaAddedGreenDecoration, []); } catch { }
+	// 				}, 12000);
+	// 			}
+	// 		}
+
+	// 		// auto-save after smart edit so user doesn't need to save manually
+	// 		await vscode.window.activeTextEditor?.document.save();
+
+	// 		// after edit: show actions again for current guided step
+	// 		if (guidedSession) {
+	// 			const stage =
+	// 				guidedSession.currentStep === 1
+	// 					? 'afterStep1'
+	// 					: guidedSession.currentStep === 2
+	// 						? 'afterStep2'
+	// 						: guidedSession.currentStep === 3
+	// 							? 'afterStep3'
+	// 							: 'afterStep4';
+
+	// 			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
+	// 		}
+
+	// 		// If a follow-up plan was created (Step 1 consistency), show it in the chat and keep it pending.
+	// 		if (plan && plan.actions && plan.actions.length) {
+	// 			pendingSmartEditPlan = plan;
+	// 			chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: plan });
+	// 		}
+
+	// 		let summary = `Smart edit applied ${applied.length} change(s):\n` + applied.join('\n');
+	// 		if (plan && plan.actions && plan.actions.length) {
+	// 			summary += `\n\nSuggested follow-up fixes are ready (${plan.actions.length}). Review and apply them from the chat.`;
+	// 		}
+	// 		return summary;
+	// 	} catch (e: any) {
+	// 		vscode.window.showErrorMessage(`Smart edit failed: ${e?.message || e}`);
+	// 		// After an error, restore the guided action buttons (EDIT/APPROVE) so the UI doesn't get "stuck".
+	// 		if (guidedSession) {
+	// 			const stage =
+	// 				guidedSession.currentStep === 1
+	// 					? 'afterStep1'
+	// 					: guidedSession.currentStep === 2
+	// 						? 'afterStep2'
+	// 						: guidedSession.currentStep === 3
+	// 							? 'afterStep3'
+	// 							: 'afterStep4';
+
+	// 			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
+	// 		}
+
+	// 		// If there is a pending plan, re-show it so its buttons (apply/discard) are visible again.
+	// 		if (pendingSmartEditPlan && pendingSmartEditPlan.actions?.length) {
+	// 			chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: pendingSmartEditPlan });
+	// 		}
+
+	// 		return `Smart edit failed: ${e?.message || e}`;
+	// 	}
+	// });
+
+	const smartEditCmd = vscode.commands.registerCommand(
+		'stpa-agent.smartEdit',
+		async (instruction?: string) => {
+			try {
+				if (!instruction || !instruction.trim()) {
+					return 'No instruction provided.';
 				}
+
+				const scope: EditScope | undefined = guidedSession
+					? {
+						step: guidedSession.currentStep,
+						allowedSections:
+							guidedSession.currentStep === 1
+								? ['LOSSES', 'HAZARDS', 'SAFETY_CONSTRAINTS', 'REFINED_HAZARDS']
+								: guidedSession.currentStep === 2
+									? [
+										'CONTROLLERS',
+										'CONTROLLED_PROCESSES',
+										'ACTUATORS',
+										'SENSORS',
+										'EXTERNAL_SYSTEMS',
+										'CONTROL_ACTIONS',
+										'FEEDBACK',
+										'CONTROL_LOOPS',
+									]
+									: guidedSession.currentStep === 3
+										? ['UCAS']
+										: ['LOSS_SCENARIOS'],
+					}
+					: undefined;
+
+				const { applied, ranges, plan } = await smartEditFromChat(
+					instruction,
+					undefined,
+					scope
+				);
+
+				const editor = vscode.window.activeTextEditor;
+				applyGreenDecoration(editor, ranges);
+				const savePromise = editor && ranges?.length ? editor.document.save() : undefined;
+
+				if (guidedSession) {
+					const stage =
+						guidedSession.currentStep === 1
+							? 'afterStep1'
+							: guidedSession.currentStep === 2
+								? 'afterStep2'
+								: guidedSession.currentStep === 3
+									? 'afterStep3'
+									: 'afterStep4';
+
+					chatProvider.sendToWebview({
+						type: 'guidedActions',
+						payload: { stage },
+					});
+				}
+
+				if (plan?.actions?.length) {
+					pendingSmartEditPlan = plan;
+					chatProvider.sendToWebview({
+						type: 'showSmartEditPlan',
+						payload: plan,
+					});
+				}
+
+				let summary =
+					`Smart edit applied ${applied.length} change(s):\n` +
+					applied.join('\n');
+
+				if (plan?.actions?.length) {
+					summary +=
+						`\n\nSuggested follow-up fixes are ready (` +
+						`${plan.actions.length}). Review and apply them from the chat.`;
+				}
+
+				if (savePromise) {
+					await savePromise;
+				}
+
+				return summary;
+			} catch (e: any) {
+				vscode.window.showErrorMessage(
+					`Smart edit failed: ${e?.message || e}`
+				);
+
+				// ⛔️ אין פה יותר שליחת guidedActions
+				// ⛔️ אין פה יותר showSmartEditPlan
+
+				return `Smart edit failed: ${e?.message || e}`;
 			}
-
-			// auto-save after smart edit so user doesn't need to save manually
-			await vscode.window.activeTextEditor?.document.save();
-
-			// after edit: show actions again for current guided step
-			if (guidedSession) {
-				const stage =
-					guidedSession.currentStep === 1
-						? 'afterStep1'
-						: guidedSession.currentStep === 2
-							? 'afterStep2'
-							: guidedSession.currentStep === 3
-								? 'afterStep3'
-								: 'afterStep4';
-
-				chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
-			}
-
-			// If a follow-up plan was created (Step 1 consistency), show it in the chat and keep it pending.
-			if (plan && plan.actions && plan.actions.length) {
-				pendingSmartEditPlan = plan;
-				chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: plan });
-			}
-
-			let summary = `Smart edit applied ${applied.length} change(s):\n` + applied.join('\n');
-			if (plan && plan.actions && plan.actions.length) {
-				summary += `\n\nSuggested follow-up fixes are ready (${plan.actions.length}). Review and apply them from the chat.`;
-			}
-			return summary;
-		} catch (e: any) {
-			vscode.window.showErrorMessage(`Smart edit failed: ${e?.message || e}`);
-			return `Smart edit failed: ${e?.message || e}`;
 		}
-	});
+	);
 
 	/** --------------------------------------------
 	 * Apply / discard the pending Smart Edit plan
@@ -1158,18 +1393,14 @@ export function activate(context: vscode.ExtensionContext) {
 			pendingSmartEditPlan = null;
 
 			const editor = vscode.window.activeTextEditor;
-			if (editor) {
-				stpaAddedGreenDecoration && editor.setDecorations(stpaAddedGreenDecoration, ranges || []);
-				if (ranges?.length) {
-					setTimeout(() => {
-						try { editor.setDecorations(stpaAddedGreenDecoration, []); } catch { }
-					}, 12000);
-				}
-				await editor.document.save();
-			}
+			applyGreenDecoration(editor, ranges);
+			const savePromise = editor && ranges?.length ? editor.document.save() : undefined;
 
 			const summary = `Applied ${applied.length} follow-up change(s):\n` + applied.join('\n');
 			chatProvider.sendToWebview({ type: 'append', payload: { role: 'assistant', content: summary } });
+			if (savePromise) {
+				await savePromise;
+			}
 			return summary;
 		} catch (e: any) {
 			vscode.window.showErrorMessage(`Apply plan failed: ${e?.message || e}`);
@@ -1334,6 +1565,18 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
+			try {
+				const hasDiagrams = loadGuidedDiagramsFromDisk(guidedSession);
+				if (!hasDiagrams) {
+					await generateDiagramsForGuidedSession(apiKey, guidedSession);
+				}
+			} catch (e: any) {
+				chatProvider.sendToWebview({
+					type: 'toast',
+					payload: `Diagram generation after Step 2 failed: ${e?.message || e}`,
+				});
+			}
+
 			const step3Text = await runStepText(
 				apiKey,
 				buildStep3Prompt(
@@ -1440,28 +1683,10 @@ export function activate(context: vscode.ExtensionContext) {
 		chatProvider.sendToWebview({ type: 'busy', payload: true });
 
 		try {
-			// compact classic pass for diagrams/json/report
-			const prompt = buildStpaPrompt({ systemType: guidedSession.systemType, text: guidedSession.systemText });
-			const result = await runModel(apiKey, prompt);
-
-			const cs = deriveControlStructFromText(guidedSession.systemText);
-			const csMermaid = buildControlStructureMermaid(cs);
-			const impactMermaid = buildImpactGraphMermaid(result);
-
-			lastContext = {
-				systemType: guidedSession.systemType,
-				result,
-				cs,
-				csMermaid,
-				impactMermaid,
-				project: guidedSession.project,
-			};
-
-			const md = buildMarkdownReport(lastContext);
-
-			await saveResultAsJSON(result, guidedSession.project);
-			await saveMarkdownReport(md, guidedSession.project);
-			await saveMermaidDiagrams(guidedSession.project, csMermaid, impactMermaid);
+			const hasDiagrams = loadGuidedDiagramsFromDisk(guidedSession);
+			if (!hasDiagrams) {
+				await generateDiagramsForGuidedSession(apiKey, guidedSession);
+			}
 
 			chatProvider.sendToWebview({
 				type: 'append',
@@ -1767,6 +1992,27 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 
+	const guidedRefreshActionsCmd = vscode.commands.registerCommand('stpa-agent.guided.refreshActions', async () => {
+		if (!guidedSession) return;
+
+		const stage =
+			guidedSession.currentStep === 1
+				? 'afterStep1'
+				: guidedSession.currentStep === 2
+					? 'afterStep2'
+					: guidedSession.currentStep === 3
+						? 'afterStep3'
+						: 'afterStep4';
+
+		chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
+
+		// אם יש plan תלוי – להציג שוב (כדי לא להיתקע בלי כפתורים שלו)
+		if (pendingSmartEditPlan && pendingSmartEditPlan.actions?.length) {
+			chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: pendingSmartEditPlan });
+		}
+	});
+
+
 
 
 	// const guidedJumpCmd = vscode.commands.registerCommand('stpa-agent.guided.jumpToStep', async () => {
@@ -1884,8 +2130,11 @@ export function activate(context: vscode.ExtensionContext) {
 		guidedJumpContinueMissingCmd,
 		inlineDisp,
 		guidedOpenStepInFileCmd,
-		guidedJumpEditTargetStepCmd
+		guidedJumpEditTargetStepCmd,
+		guidedRefreshActionsCmd,
+
 	);
+	console.log('stpa-ext: activate end');
 }
 
 export function deactivate() { }

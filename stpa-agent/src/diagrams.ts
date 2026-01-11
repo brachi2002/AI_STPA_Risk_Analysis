@@ -51,18 +51,18 @@ export function buildImpactGraphMermaid(stpa: StpaResult): string {
     stpa.hazards.forEach((h) => lines.push(`${idOf(h)}[${esc(h)}]:::haz`));
     stpa.losses.forEach((l) => lines.push(`${idOf(l)}[${esc(l)}]:::loss`));
 
-    // Edges UCA -> H (from related)
+    // Edges UCA -> H (from leads_to)
     stpa.ucas.forEach((u) => {
         const uid = idOf(u);
         const meta = parseUcaRow(u);
-        meta.relatedHazards.forEach((hid) => { if (uid && hid) { lines.push(`${uid} --> ${hid}`); } });
+        meta.leadsToHazards.forEach((hid: string) => { if (uid && hid) { lines.push(`${uid} --> ${hid}`); } });
     });
 
     // Edges H -> L
     stpa.hazards.forEach((h) => {
         const hid = idOf(h);
         const meta = parseHazardRow(h);
-        meta.relatedLosses.forEach((lid) => { if (hid && lid) { lines.push(`${hid} --> ${lid}`); } });
+        meta.leadsToLosses.forEach((lid: string) => { if (hid && lid) { lines.push(`${hid} --> ${lid}`); } });
     });
 
     // Styles

@@ -17,6 +17,8 @@
     "onCommand:stpa-agent.refineAnalysis",
     "onCommand:stpa-agent.previewDiagrams",
     "onCommand:stpa-agent.smartEdit",
+    "onCommand:stpa-agent.smartEdit.applyPlan",
+    "onCommand:stpa-agent.smartEdit.discardPlan",
     "onCommand:stpa-agent.guided"
   ],
   "contributes": {
@@ -37,6 +39,22 @@
           "type": "webview"
         }
       ]
+    },
+    "configuration": {
+      "title": "STPA Agent",
+      "properties": {
+        "stpaAgent.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "enum": [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-4.1-mini",
+            "gpt-4.1"
+          ],
+          "description": "Selected model for the chat UI (not yet used for API calls)."
+        }
+      }
     },
     "commands": [
       {
@@ -83,6 +101,16 @@
           "light": "media/clear.svg",
           "dark": "media/clear.svg"
         }
+      },
+      {
+        "command": "stpa-agent.smartEdit.applyPlan",
+        "title": "STPA Agent: Apply Suggested Fixes",
+        "category": "STPA Agent"
+      },
+      {
+        "command": "stpa-agent.smartEdit.discardPlan",
+        "title": "STPA Agent: Discard Suggested Fixes",
+        "category": "STPA Agent"
       }
     ],
     "keybindings": [
@@ -104,9 +132,11 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.104.0",
@@ -115,6 +145,8 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.8.3"
   },
   "dependencies": {
