@@ -13,7 +13,8 @@ import {
   validateAddGrounding,
   validateGeneratedLines,
   validateStep1Plan,
-} from '../src/aiEdit';
+  validateStep2Plan,
+} from '../../src/aiEdit';
 
 type HeadingStyle = 'underscore' | 'space';
 
@@ -536,6 +537,36 @@ describe('validateStep1Plan', () => {
       actions: [
         { op: 'add', section: 'HAZARDS', lines: ['H1: Hazard text. (leads_to: L1)'] },
         { op: 'add', section: 'SAFETY_CONSTRAINTS', lines: ['SC1: Constraint text. (addresses: H1)'] },
+      ],
+    });
+    expect(err).toBeNull();
+  });
+});
+
+describe('validateStep2Plan', () => {
+  test('rejects non-add actions', () => {
+    const err = validateStep2Plan({
+      id: 'plan_step2_bad',
+      title: 'x',
+      summary: 'y',
+      actions: [{ op: 'delete', section: 'UCAS', match: 'UCA1' }],
+    });
+    expect(err).not.toBeNull();
+  });
+
+  test('accepts add-only UCA actions', () => {
+    const err = validateStep2Plan({
+      id: 'plan_step2_ok',
+      title: 'x',
+      summary: 'y',
+      actions: [
+        {
+          op: 'add',
+          section: 'UCAS',
+          lines: [
+            'UCA1: (type: omission) (controller: C1) (control_action: CA1) Example. (control loop: LOOP1; related: H1)',
+          ],
+        },
       ],
     });
     expect(err).toBeNull();

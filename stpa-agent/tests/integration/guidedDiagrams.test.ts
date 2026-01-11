@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { SystemType } from '../src/types';
-import { __test__ } from '../src/extension';
+import type { SystemType } from '../../src/types';
+import { __test__ } from '../../src/extension';
 
 const {
 	getGuidedDiagramPaths,

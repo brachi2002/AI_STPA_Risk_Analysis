@@ -1,0 +1,7 @@
+System description: An automotive emergency braking system assists drivers in urban traffic.
+Controller: vehicle ECU evaluates sensor inputs and decides when to apply braking.
+Sensors include radar, camera, and wheel speed sensors monitoring obstacles and speed.
+Actuators are the brake hydraulics and throttle cut that reduce vehicle speed.
+Feedback is provided via dashboard warnings and brake pressure status.
+Safety context: prevent rear-end collisions and reduce impact severity.
+Assumptions: sensors are calibrated and road friction is within normal ranges.

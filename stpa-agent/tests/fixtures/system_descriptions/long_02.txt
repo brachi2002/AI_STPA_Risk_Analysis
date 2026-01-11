@@ -1,0 +1,8 @@
+System overview: A maritime collision avoidance suite assists ships navigating busy harbors.
+Objectives: reduce collision risk, maintain safe speed and separation, and support compliant maneuvers.
+Operating environment: heavy traffic, poor visibility, changing tides, and strong crosswinds.
+Actors: bridge officer, harbor pilot, and shore-based traffic coordinator.
+Scope: onboard sensors, decision support software, autopilot interface, and alarm system; out of scope are third-party vessel systems.
+Interfaces: radar, AIS, GPS, wind sensors, engine control, and VHF communications.
+Assumptions: AIS data may be delayed by up to 30 seconds, radar clutter increases during rain, and manual steering can override autopilot at any time.
+Additional context: the system logs events for audit and supports a training mode that replays historical encounters.

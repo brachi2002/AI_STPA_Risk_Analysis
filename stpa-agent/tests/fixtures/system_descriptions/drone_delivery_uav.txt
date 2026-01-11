@@ -1,0 +1,7 @@
+System description: A delivery UAV transports small packages between local hubs.
+Controller: onboard autopilot plans routes while a remote operator can override.
+Sensors include GPS, barometer, obstacle detection cameras, and IMU telemetry.
+Actuators are the rotors and control surfaces that adjust thrust and attitude.
+Feedback comes from telemetry links and onboard status indicators.
+Safety context: avoid collisions, maintain altitude limits, and protect people below.
+Assumptions: GPS is available and delivery zones are pre-approved.

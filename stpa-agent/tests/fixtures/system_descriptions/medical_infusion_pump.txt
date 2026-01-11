@@ -1,0 +1,7 @@
+System description: A hospital infusion pump delivers IV medication to patients.
+Controller: a nurse configures dosage, rate, and start/stop timing.
+Sensors monitor flow rate, line pressure, and patient ID barcode scans.
+Actuators include the pump motor and line clamp that regulate infusion flow.
+Feedback is shown on the device display with alarms for occlusion or mismatch.
+Safety context: prevent overdose, wrong-patient delivery, and delayed alarms.
+Assumptions: staff are trained and prescriptions are verified before infusion.

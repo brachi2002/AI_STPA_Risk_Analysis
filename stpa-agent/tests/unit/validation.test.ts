@@ -1,4 +1,4 @@
-import { validateInput } from '../src/validator';
+import { validateInput } from '../../src/validator';
 
 describe('validateInput', () => {
   test('flags missing significant parts for step1', () => {

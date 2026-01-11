@@ -13,10 +13,12 @@ function buildControlStructureMermaid(cs) {
         (arr || []).forEach((n, i) => {
             const id = nodeId(pref, i);
             const label = esc(n);
-            if (shape === '()')
+            if (shape === '()') {
                 lines.push(`${id}((${label}))`);
-            else
+            }
+            else {
                 lines.push(`${id}[${label}]`);
+            }
         });
     };
     add(cs.actors, 'Actor');
@@ -42,19 +44,21 @@ function buildImpactGraphMermaid(stpa) {
     stpa.ucas.forEach((u) => lines.push(`${idOf(u)}[${esc(u)}]:::uca`));
     stpa.hazards.forEach((h) => lines.push(`${idOf(h)}[${esc(h)}]:::haz`));
     stpa.losses.forEach((l) => lines.push(`${idOf(l)}[${esc(l)}]:::loss`));
-    // Edges UCA -> H (from related)
+    // Edges UCA -> H (from leads_to)
     stpa.ucas.forEach((u) => {
         const uid = idOf(u);
         const meta = (0, tables_1.parseUcaRow)(u);
-        meta.relatedHazards.forEach((hid) => { if (uid && hid)
-            lines.push(`${uid} --> ${hid}`); });
+        meta.leadsToHazards.forEach((hid) => { if (uid && hid) {
+            lines.push(`${uid} --> ${hid}`);
+        } });
     });
     // Edges H -> L
     stpa.hazards.forEach((h) => {
         const hid = idOf(h);
         const meta = (0, tables_1.parseHazardRow)(h);
-        meta.relatedLosses.forEach((lid) => { if (hid && lid)
-            lines.push(`${hid} --> ${lid}`); });
+        meta.leadsToLosses.forEach((lid) => { if (hid && lid) {
+            lines.push(`${hid} --> ${lid}`);
+        } });
     });
     // Styles
     lines.push('classDef uca fill:#E6F7FF,stroke:#06c;');
@@ -65,14 +69,17 @@ function buildImpactGraphMermaid(stpa) {
 }
 function idOf(line) {
     const u = line.match(/^UCA(\d+)/i);
-    if (u)
+    if (u) {
         return `UCA${u[1]}`;
+    }
     const h = line.match(/^H(\d+)/i);
-    if (h)
+    if (h) {
         return `H${h[1]}`;
+    }
     const l = line.match(/^L(\d+)/i);
-    if (l)
+    if (l) {
         return `L${l[1]}`;
+    }
     return 'N' + Math.random().toString(36).slice(2, 7);
 }
 //# sourceMappingURL=diagrams.js.map

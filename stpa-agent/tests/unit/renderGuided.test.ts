@@ -4,7 +4,7 @@ import {
   renderStep2Markdown,
   renderStep3Markdown,
   renderStep4Markdown,
-} from '../src/renderGuided';
+} from '../../src/renderGuided';
 
 describe('safeJsonParse', () => {
   test('parses valid JSON', () => {

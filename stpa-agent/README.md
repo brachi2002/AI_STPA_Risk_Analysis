@@ -18,7 +18,7 @@ If you have any requirements or dependencies, add a section describing those and
 
 ## Testing
 
-Run unit tests with:
+Unit + integration (Jest):
 
 ```
 npm test
@@ -29,6 +29,28 @@ Watch mode:
 ```
 npm run test:watch
 ```
+
+Update snapshots:
+
+```
+npm run test:update-snapshots
+```
+
+Coverage:
+
+```
+npm run test:cov
+```
+
+Coverage reports are written to `coverage/lcov-report`.
+
+E2E (VS Code Test API, runs separately):
+
+```
+npm run test:e2e
+```
+
+E2E artifacts/logs are written on failure to `tests/e2e/artifacts`.
 
 ## Extension Settings
 
