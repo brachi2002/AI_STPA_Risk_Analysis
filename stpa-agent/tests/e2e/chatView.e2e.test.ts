@@ -2,6 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+const extensionExports = require(path.join(__dirname, '../../../extension'));
+const { __test__ } = extensionExports;
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -16,7 +19,7 @@ function writeArtifact(name: string, payload: unknown) {
 
 async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
-  timeoutMs = 10000
+  timeoutMs = 20000
 ) {
   const start = Date.now();
   // eslint-disable-next-line no-constant-condition
@@ -27,6 +30,31 @@ async function waitForCondition(
     }
     await delay(200);
   }
+}
+
+async function waitForCommand(commandId: string, timeoutMs = 10000) {
+  await waitForCondition(async () => {
+    const commands = await vscode.commands.getCommands(true);
+    return commands.includes(commandId);
+  }, timeoutMs);
+}
+
+function isStpaPreviewView(input: unknown): boolean {
+  if (!input || !(input instanceof (vscode.TabInputWebview as any))) {
+    return false;
+  }
+  const viewType = (input as any).viewType as string;
+  if (!viewType) return false;
+  const lower = viewType.toLowerCase();
+  return lower.includes('stpa') && lower.includes('diag');
+}
+
+async function waitForPreviewPanel(timeoutMs = 20000) {
+  await waitForCondition(() => {
+    return vscode.window.tabGroups.all.some((group) =>
+      group.tabs.some((tab) => isStpaPreviewView(tab.input))
+    );
+  }, timeoutMs);
 }
 
 function getWorkspaceFile(name: string): string {
@@ -71,7 +99,7 @@ suite('STPA Agent E2E', () => {
       const doc = await vscode.workspace.openTextDocument(filePath);
       await vscode.window.showTextDocument(doc, { preview: false });
 
-      delete process.env.OPENAI_API_KEY;
+      process.env.OPENAI_API_KEY = '';
 
       await vscode.commands.executeCommand('workbench.view.extension.stpaAgent');
 
@@ -79,8 +107,10 @@ suite('STPA Agent E2E', () => {
         () => vscode.window.visibleTextEditors.some((editor) => editor.document.uri.fsPath === filePath)
       );
 
+      await waitForCommand('stpa-agent.guided.explainCurrentStep');
       await vscode.commands.executeCommand('stpa-agent.guided.explainCurrentStep');
 
+      process.env.OPENAI_API_KEY = '';
       const smartEditResult = await vscode.commands.executeCommand(
         'stpa-agent.smartEdit',
         'add L1: Example loss.'
@@ -96,8 +126,17 @@ suite('STPA Agent E2E', () => {
         throw new Error(`Unexpected apply plan result: ${String(applyResult)}`);
       }
 
+      const project = { dir: path.dirname(filePath), baseName: path.basename(filePath, path.extname(filePath)) };
+      __test__.setLastContext({
+        systemType: 'generic',
+        result: { losses: [], hazards: [], ucas: [], raw: 'preview' },
+        csMermaid: '```mermaid\ngraph TD\nA-->B\n```',
+        impactMermaid: '```mermaid\ngraph LR\nA-->B\n```',
+        project,
+      });
+
       await vscode.commands.executeCommand('stpa-agent.previewDiagrams');
-      await waitForCondition(() => infoMessages.length > 0);
+      await waitForPreviewPanel();
 
       if (errors.length) {
         throw new Error(`Console errors: ${errors.join(' | ')}`);

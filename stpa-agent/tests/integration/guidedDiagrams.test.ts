@@ -6,7 +6,6 @@ import { __test__ } from '../../src/extension';
 
 const {
 	getGuidedDiagramPaths,
-	readResultFromJson,
 	loadGuidedDiagramsFromDisk,
 	generateDiagramsForGuidedSession,
 	getLastContext,
@@ -18,63 +17,13 @@ function makeTempDir(): string {
 }
 
 describe('getGuidedDiagramPaths', () => {
-	test('returns correct cs/impact/json paths', () => {
+	test('returns correct cs/impact paths', () => {
 		const dir = makeTempDir();
 		const project = { dir, baseName: 'demo' };
 		const paths = getGuidedDiagramPaths(project);
 		expect(paths.csPath).toBe(path.join(project.dir, 'demo_cs.mmd'));
 		expect(paths.impactPath).toBe(path.join(project.dir, 'demo_impact.mmd'));
-		expect(paths.jsonPath).toBe(path.join(project.dir, 'demo_stpa.json'));
 		fs.rmSync(dir, { recursive: true, force: true });
-	});
-});
-
-describe('readResultFromJson', () => {
-	let dir: string;
-
-	beforeEach(() => {
-		dir = makeTempDir();
-	});
-
-	afterEach(() => {
-		fs.rmSync(dir, { recursive: true, force: true });
-	});
-
-	test('returns null if file does not exist', () => {
-		const file = path.join(dir, 'missing.json');
-		expect(readResultFromJson(file)).toBeNull();
-	});
-
-	test('returns parsed StpaResult for valid JSON', () => {
-		const file = path.join(dir, 'valid.json');
-		fs.writeFileSync(
-			file,
-			JSON.stringify({ losses: ['L1'], hazards: ['H1'], ucas: ['UCA1'], raw: 'raw' }),
-			'utf-8'
-		);
-		expect(readResultFromJson(file)).toEqual({
-			losses: ['L1'],
-			hazards: ['H1'],
-			ucas: ['UCA1'],
-			raw: 'raw',
-		});
-	});
-
-	test('returns empty arrays for missing fields', () => {
-		const file = path.join(dir, 'partial.json');
-		fs.writeFileSync(file, JSON.stringify({ losses: ['L1'] }), 'utf-8');
-		expect(readResultFromJson(file)).toEqual({
-			losses: ['L1'],
-			hazards: [],
-			ucas: [],
-			raw: '',
-		});
-	});
-
-	test('returns null for invalid JSON', () => {
-		const file = path.join(dir, 'invalid.json');
-		fs.writeFileSync(file, '{ invalid json', 'utf-8');
-		expect(readResultFromJson(file)).toBeNull();
 	});
 });
 
@@ -112,21 +61,16 @@ describe('loadGuidedDiagramsFromDisk', () => {
 	});
 
 	test('returns true and populates lastContext when files exist', () => {
-		const { csPath, impactPath, jsonPath } = getGuidedDiagramPaths(project);
+		const { csPath, impactPath } = getGuidedDiagramPaths(project);
 		fs.writeFileSync(csPath, 'cs', 'utf-8');
 		fs.writeFileSync(impactPath, 'impact', 'utf-8');
-		fs.writeFileSync(
-			jsonPath,
-			JSON.stringify({ losses: ['L1'], hazards: [], ucas: [], raw: 'raw' }),
-			'utf-8'
-		);
 
 		expect(loadGuidedDiagramsFromDisk(session)).toBe(true);
 		const ctx = getLastContext();
 		expect(ctx?.project?.baseName).toBe('demo');
 		expect(ctx?.csMermaid).toBe('cs');
 		expect(ctx?.impactMermaid).toBe('impact');
-		expect(ctx?.result.losses).toEqual(['L1']);
+		expect(ctx?.result.losses).toEqual([]);
 	});
 
 	test('does not overwrite lastContext when it already matches the same project', () => {

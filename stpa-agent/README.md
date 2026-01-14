@@ -18,39 +18,19 @@ If you have any requirements or dependencies, add a section describing those and
 
 ## Testing
 
-Unit + integration (Jest):
+Full details about the unit, integration, E2E, and manual acceptance testing strategy live in [`TESTING.md`](TESTING.md). Command-wise, the project still uses:
 
 ```
 npm test
 ```
 
-Watch mode:
-
-```
-npm run test:watch
-```
-
-Update snapshots:
-
-```
-npm run test:update-snapshots
-```
-
-Coverage:
-
-```
-npm run test:cov
-```
-
-Coverage reports are written to `coverage/lcov-report`.
-
-E2E (VS Code Test API, runs separately):
+for Jest-based unit/integration checks, `npm run test:cov` for coverage reporting, `npm run test:update-snapshots` when the Webview snapshots change, and
 
 ```
 npm run test:e2e
 ```
 
-E2E artifacts/logs are written on failure to `tests/e2e/artifacts`.
+to compile `tsconfig.e2e.json` and execute the VS Code smoke test via `@vscode/test-cli`.
 
 ## Extension Settings
 

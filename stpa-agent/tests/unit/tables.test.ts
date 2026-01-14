@@ -17,6 +17,16 @@ describe('tables parsing helpers', () => {
     expect(row.controlLoop).toBe('LOOP1');
     expect(row.leadsToHazards).toEqual(['H2', 'H3']);
   });
+
+  test('parseHazardRow handles semicolons and legacy related notation', () => {
+    const row = parseHazardRow('H1: Hazard text. (related: L1; L2)');
+    expect(row.leadsToLosses).toEqual(['L1', 'L2']);
+  });
+
+  test('parseUcaRow tolerates semicolons, trailing spaces, and double-space line endings', () => {
+    const row = parseUcaRow('UCA1: Unsafe action. (leads_to: H1; H6)  ');
+    expect(row.leadsToHazards).toEqual(['H1', 'H6']);
+  });
 });
 
 describe('buildMarkdownTables', () => {

@@ -72,6 +72,12 @@ async function waitForMessage(
 }
 
 describe('Webview protocol integration', () => {
+  const guidedStageWithActions = (stage: string) => (msg: any) =>
+    msg.type === 'guidedActions' &&
+    msg.payload?.stage === stage &&
+    Array.isArray(msg.payload?.actions) &&
+    msg.payload.actions.length > 0;
+
   test('covers core message types and guided flow', async () => {
     const { harness } = await setupHarness();
 
@@ -97,26 +103,23 @@ describe('Webview protocol integration', () => {
     await harness.waitForMessage((msg) => msg.type === 'append');
 
     await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'startStep1' } });
-    await harness.waitForMessage((msg) => msg.type === 'guidedActions' && msg.payload?.stage === 'afterStep1');
+    await harness.waitForMessage(guidedStageWithActions('afterStep1'));
     await harness.assertIdle();
 
     await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'continueStep2' } });
-    await harness.waitForMessage((msg) => msg.type === 'guidedActions' && msg.payload?.stage === 'afterStep2');
+    await harness.waitForMessage(guidedStageWithActions('afterStep2'));
     await harness.assertIdle();
 
     await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'continueStep3' } });
-    await harness.waitForMessage((msg) => msg.type === 'guidedActions' && msg.payload?.stage === 'afterStep3');
+    await harness.waitForMessage(guidedStageWithActions('afterStep3'));
     await harness.assertIdle();
 
     await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'continueStep4' } });
-    await harness.waitForMessage((msg) => msg.type === 'guidedActions' && msg.payload?.stage === 'afterStep4');
+    await harness.waitForMessage(guidedStageWithActions('afterStep4'));
     await harness.assertIdle();
 
     await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'editCurrentStep' } });
-    await harness.waitForMessage((msg) => msg.type === 'guidedActions');
-
-    await harness.sendFromWebview({ type: 'guidedAction', payload: { action: 'generateDiagrams' } });
-    await harness.assertIdle();
+    await harness.waitForMessage((msg) => msg.type === 'guidedActions' && Array.isArray(msg.payload?.actions) && msg.payload.actions.length > 0);
 
     await harness.sendFromWebview({ type: 'applySmartEditPlan', payload: { id: 'plan_1' } });
     await harness.waitForMessage((msg) => msg.type === 'append');

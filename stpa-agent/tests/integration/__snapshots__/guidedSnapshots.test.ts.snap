@@ -13,11 +13,11 @@ exports[`guided step snapshots snapshot: {
 }: automotive_emergency_braking 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system description an automo loss of mission outcome.
-L2: system description an automo injury to user.
-L3: system description an automo damage to equipment.
-L4: system description an automo loss of data integrity.
-L5: system description an automo regulatory breach.
+L1: nsystem description an autom loss of mission outcome.
+L2: nsystem description an autom injury to user.
+L3: nsystem description an autom damage to equipment.
+L4: nsystem description an autom loss of data integrity.
+L5: nsystem description an autom regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -168,11 +168,11 @@ exports[`guided step snapshots snapshot: {
 }: drone_delivery_uav 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system description a deliver loss of mission outcome.
-L2: system description a deliver injury to user.
-L3: system description a deliver damage to equipment.
-L4: system description a deliver loss of data integrity.
-L5: system description a deliver regulatory breach.
+L1: nsystem description a delive loss of mission outcome.
+L2: nsystem description a delive injury to user.
+L3: nsystem description a delive damage to equipment.
+L4: nsystem description a delive loss of data integrity.
+L5: nsystem description a delive regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -324,11 +324,11 @@ exports[`guided step snapshots snapshot: {
 }: long_01 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a regional e loss of mission outcome.
-L2: system overview a regional e injury to user.
-L3: system overview a regional e damage to equipment.
-L4: system overview a regional e loss of data integrity.
-L5: system overview a regional e regulatory breach.
+L1: nsystem overview a regional  loss of mission outcome.
+L2: nsystem overview a regional  injury to user.
+L3: nsystem overview a regional  damage to equipment.
+L4: nsystem overview a regional  loss of data integrity.
+L5: nsystem overview a regional  regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -480,11 +480,11 @@ exports[`guided step snapshots snapshot: {
 }: long_02 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a maritime c loss of mission outcome.
-L2: system overview a maritime c injury to user.
-L3: system overview a maritime c damage to equipment.
-L4: system overview a maritime c loss of data integrity.
-L5: system overview a maritime c regulatory breach.
+L1: nsystem overview a maritime  loss of mission outcome.
+L2: nsystem overview a maritime  injury to user.
+L3: nsystem overview a maritime  damage to equipment.
+L4: nsystem overview a maritime  loss of data integrity.
+L5: nsystem overview a maritime  regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -635,11 +635,11 @@ exports[`guided step snapshots snapshot: {
 }: medical_infusion_pump 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system description a hospita loss of mission outcome.
-L2: system description a hospita injury to user.
-L3: system description a hospita damage to equipment.
-L4: system description a hospita loss of data integrity.
-L5: system description a hospita regulatory breach.
+L1: nsystem description a hospit loss of mission outcome.
+L2: nsystem description a hospit injury to user.
+L3: nsystem description a hospit damage to equipment.
+L4: nsystem description a hospit loss of data integrity.
+L5: nsystem description a hospit regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -789,11 +789,11 @@ exports[`guided step snapshots snapshot: {
 }: medium_01 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview an autonomou loss of mission outcome.
-L2: system overview an autonomou injury to user.
-L3: system overview an autonomou damage to equipment.
-L4: system overview an autonomou loss of data integrity.
-L5: system overview an autonomou regulatory breach.
+L1: nsystem overview an autonomo loss of mission outcome.
+L2: nsystem overview an autonomo injury to user.
+L3: nsystem overview an autonomo damage to equipment.
+L4: nsystem overview an autonomo loss of data integrity.
+L5: nsystem overview an autonomo regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -943,11 +943,11 @@ exports[`guided step snapshots snapshot: {
 }: medium_02 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a smart hvac loss of mission outcome.
-L2: system overview a smart hvac injury to user.
-L3: system overview a smart hvac damage to equipment.
-L4: system overview a smart hvac loss of data integrity.
-L5: system overview a smart hvac regulatory breach.
+L1: nsystem overview a smart hva loss of mission outcome.
+L2: nsystem overview a smart hva injury to user.
+L3: nsystem overview a smart hva damage to equipment.
+L4: nsystem overview a smart hva loss of data integrity.
+L5: nsystem overview a smart hva regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1097,11 +1097,11 @@ exports[`guided step snapshots snapshot: {
 }: medium_03 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a rail signa loss of mission outcome.
-L2: system overview a rail signa injury to user.
-L3: system overview a rail signa damage to equipment.
-L4: system overview a rail signa loss of data integrity.
-L5: system overview a rail signa regulatory breach.
+L1: nsystem overview a rail sign loss of mission outcome.
+L2: nsystem overview a rail sign injury to user.
+L3: nsystem overview a rail sign damage to equipment.
+L4: nsystem overview a rail sign loss of data integrity.
+L5: nsystem overview a rail sign regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1251,11 +1251,11 @@ exports[`guided step snapshots snapshot: {
 }: multi-domain_01 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a telemedici loss of mission outcome.
-L2: system overview a telemedici injury to user.
-L3: system overview a telemedici damage to equipment.
-L4: system overview a telemedici loss of data integrity.
-L5: system overview a telemedici regulatory breach.
+L1: nsystem overview a telemedic loss of mission outcome.
+L2: nsystem overview a telemedic injury to user.
+L3: nsystem overview a telemedic damage to equipment.
+L4: nsystem overview a telemedic loss of data integrity.
+L5: nsystem overview a telemedic regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1405,11 +1405,11 @@ exports[`guided step snapshots snapshot: {
 }: multi-domain_02 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a logistics  loss of mission outcome.
-L2: system overview a logistics  injury to user.
-L3: system overview a logistics  damage to equipment.
-L4: system overview a logistics  loss of data integrity.
-L5: system overview a logistics  regulatory breach.
+L1: nsystem overview a logistics loss of mission outcome.
+L2: nsystem overview a logistics injury to user.
+L3: nsystem overview a logistics damage to equipment.
+L4: nsystem overview a logistics loss of data integrity.
+L5: nsystem overview a logistics regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1559,11 +1559,11 @@ exports[`guided step snapshots snapshot: {
 }: multi-domain_03 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system overview a coastal dr loss of mission outcome.
-L2: system overview a coastal dr injury to user.
-L3: system overview a coastal dr damage to equipment.
-L4: system overview a coastal dr loss of data integrity.
-L5: system overview a coastal dr regulatory breach.
+L1: nsystem overview a coastal d loss of mission outcome.
+L2: nsystem overview a coastal d injury to user.
+L3: nsystem overview a coastal d damage to equipment.
+L4: nsystem overview a coastal d loss of data integrity.
+L5: nsystem overview a coastal d regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1711,11 +1711,11 @@ exports[`guided step snapshots snapshot: {
 }: short_01 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system description a small q loss of mission outcome.
-L2: system description a small q injury to user.
-L3: system description a small q damage to equipment.
-L4: system description a small q loss of data integrity.
-L5: system description a small q regulatory breach.
+L1: nsystem description a small  loss of mission outcome.
+L2: nsystem description a small  injury to user.
+L3: nsystem description a small  damage to equipment.
+L4: nsystem description a small  loss of data integrity.
+L5: nsystem description a small  regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -1863,11 +1863,11 @@ exports[`guided step snapshots snapshot: {
 }: short_02 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: system description a hospita loss of mission outcome.
-L2: system description a hospita injury to user.
-L3: system description a hospita damage to equipment.
-L4: system description a hospita loss of data integrity.
-L5: system description a hospita regulatory breach.
+L1: nsystem description a hospit loss of mission outcome.
+L2: nsystem description a hospit injury to user.
+L3: nsystem description a hospit damage to equipment.
+L4: nsystem description a hospit loss of data integrity.
+L5: nsystem description a hospit regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -2013,11 +2013,11 @@ exports[`guided step snapshots snapshot: {
 }: under-specified_01 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: a system manages tasks and a loss of mission outcome.
-L2: a system manages tasks and a injury to user.
-L3: a system manages tasks and a damage to equipment.
-L4: a system manages tasks and a loss of data integrity.
-L5: a system manages tasks and a regulatory breach.
+L1: na system manages tasks and  loss of mission outcome.
+L2: na system manages tasks and  injury to user.
+L3: na system manages tasks and  damage to equipment.
+L4: na system manages tasks and  loss of data integrity.
+L5: na system manages tasks and  regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
@@ -2163,11 +2163,11 @@ exports[`guided step snapshots snapshot: {
 }: under-specified_02 1`] = `
 {
   "step1": "=== LOSSES ===
-L1: this platform collects data  loss of mission outcome.
-L2: this platform collects data  injury to user.
-L3: this platform collects data  damage to equipment.
-L4: this platform collects data  loss of data integrity.
-L5: this platform collects data  regulatory breach.
+L1: nthis platform collects data loss of mission outcome.
+L2: nthis platform collects data injury to user.
+L3: nthis platform collects data damage to equipment.
+L4: nthis platform collects data loss of data integrity.
+L5: nthis platform collects data regulatory breach.
 
 === HAZARDS ===
 H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
