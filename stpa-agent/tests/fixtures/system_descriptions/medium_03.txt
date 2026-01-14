@@ -1,6 +1,0 @@
-System overview: A rail signaling subsystem schedules train movements on a single-track corridor.
-Objectives: prevent collisions, maintain safe separation, and keep arrival times within tolerance.
-Operating environment: rural track with limited cellular coverage and occasional fog.
-Actors: dispatch operator, train driver, and field technician.
-Interfaces: radio link to trains, track sensors at block boundaries, and a dispatch console.
-Assumptions: trains follow the issued movement authority without manual override except emergencies.

@@ -1,0 +1,2306 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`guided step snapshots snapshot: {
+  name: 'automotive_emergency_braking',
+  category: 'automotive',
+  text: 'System description: An automotive emergency braking system assists drivers in urban traffic.\\n' +
+    'Controller: vehicle ECU evaluates sensor inputs and decides when to apply braking.\\n' +
+    'Sensors include radar, camera, and wheel speed sensors monitoring obstacles and speed.\\n' +
+    'Actuators are the brake hydraulics and throttle cut that reduce vehicle speed.\\n' +
+    'Feedback is provided via dashboard warnings and brake pressure status.\\n' +
+    'Safety context: prevent rear-end collisions and reduce impact severity.\\n' +
+    'Assumptions: sensors are calibrated and road friction is within normal ranges.\\r\\n'
+}: automotive_emergency_braking 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem description an autom loss of mission outcome.
+L2: nsystem description an autom injury to user.
+L3: nsystem description an autom damage to equipment.
+L4: nsystem description an autom loss of data integrity.
+L5: nsystem description an autom regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system description an automo control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'drone_delivery_uav',
+  category: 'drone',
+  text: 'System description: A delivery UAV transports small packages between local hubs.\\n' +
+    'Controller: onboard autopilot plans routes while a remote operator can override.\\n' +
+    'Sensors include GPS, barometer, obstacle detection cameras, and IMU telemetry.\\n' +
+    'Actuators are the rotors and control surfaces that adjust thrust and attitude.\\n' +
+    'Feedback comes from telemetry links and onboard status indicators.\\n' +
+    'Safety context: avoid collisions, maintain altitude limits, and protect people below.\\n' +
+    'Assumptions: GPS is available and delivery zones are pre-approved.\\r\\n'
+}: drone_delivery_uav 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem description a delive loss of mission outcome.
+L2: nsystem description a delive injury to user.
+L3: nsystem description a delive damage to equipment.
+L4: nsystem description a delive loss of data integrity.
+L5: nsystem description a delive regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system description a deliver control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'long_01',
+  category: 'long',
+  text: 'System overview: A regional electric grid management system coordinates power generation, storage, and demand response across multiple substations.\\n' +
+    'Objectives: maintain frequency and voltage within regulatory limits, prevent blackouts, and optimize cost.\\n' +
+    'Operating environment: seasonal demand peaks, storms, and variable renewable generation.\\n' +
+    'Actors: grid operator, utility dispatcher, and field crews.\\n' +
+    'Scope: control center software, telemetry, and dispatch commands to generators and storage; out of scope are customer-owned microgrids.\\n' +
+    'Interfaces: SCADA network, telemetry from substations, and market price feeds.\\n' +
+    'Assumptions: telemetry updates every 2 seconds, field crews can isolate a substation within 30 minutes, and communication links have redundant paths.\\n' +
+    'Additional context: the system must coordinate with a demand response program that can shed up to 5 percent of load within 5 minutes.\\r\\n'
+}: long_01 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a regional  loss of mission outcome.
+L2: nsystem overview a regional  injury to user.
+L3: nsystem overview a regional  damage to equipment.
+L4: nsystem overview a regional  loss of data integrity.
+L5: nsystem overview a regional  regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a regional e control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'long_02',
+  category: 'long',
+  text: 'System overview: A maritime collision avoidance suite assists ships navigating busy harbors.\\n' +
+    'Objectives: reduce collision risk, maintain safe speed and separation, and support compliant maneuvers.\\n' +
+    'Operating environment: heavy traffic, poor visibility, changing tides, and strong crosswinds.\\n' +
+    'Actors: bridge officer, harbor pilot, and shore-based traffic coordinator.\\n' +
+    'Scope: onboard sensors, decision support software, autopilot interface, and alarm system; out of scope are third-party vessel systems.\\n' +
+    'Interfaces: radar, AIS, GPS, wind sensors, engine control, and VHF communications.\\n' +
+    'Assumptions: AIS data may be delayed by up to 30 seconds, radar clutter increases during rain, and manual steering can override autopilot at any time.\\n' +
+    'Additional context: the system logs events for audit and supports a training mode that replays historical encounters.\\r\\n'
+}: long_02 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a maritime  loss of mission outcome.
+L2: nsystem overview a maritime  injury to user.
+L3: nsystem overview a maritime  damage to equipment.
+L4: nsystem overview a maritime  loss of data integrity.
+L5: nsystem overview a maritime  regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a maritime c control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'medical_infusion_pump',
+  category: 'medical',
+  text: 'System description: A hospital infusion pump delivers IV medication to patients.\\n' +
+    'Controller: a nurse configures dosage, rate, and start/stop timing.\\n' +
+    'Sensors monitor flow rate, line pressure, and patient ID barcode scans.\\n' +
+    'Actuators include the pump motor and line clamp that regulate infusion flow.\\n' +
+    'Feedback is shown on the device display with alarms for occlusion or mismatch.\\n' +
+    'Safety context: prevent overdose, wrong-patient delivery, and delayed alarms.\\n' +
+    'Assumptions: staff are trained and prescriptions are verified before infusion.\\r\\n'
+}: medical_infusion_pump 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem description a hospit loss of mission outcome.
+L2: nsystem description a hospit injury to user.
+L3: nsystem description a hospit damage to equipment.
+L4: nsystem description a hospit loss of data integrity.
+L5: nsystem description a hospit regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system description a hospita control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'medium_01',
+  category: 'medium',
+  text: 'System overview: An autonomous shuttle transports passengers on a fixed downtown loop.\\n' +
+    'Objectives: maintain safe headway, stop accurately at stations, and avoid collisions with pedestrians.\\n' +
+    'Operating environment: mixed traffic, day/night, light rain, and occasional road closures.\\n' +
+    'Actors: safety driver, remote supervisor, and maintenance technician.\\n' +
+    'Scope: onboard control software, sensors, braking, and steering; out of scope is city traffic control.\\n' +
+    'Assumptions: road markings are visible and a remote operator is available during service hours.\\r\\n'
+}: medium_01 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview an autonomo loss of mission outcome.
+L2: nsystem overview an autonomo injury to user.
+L3: nsystem overview an autonomo damage to equipment.
+L4: nsystem overview an autonomo loss of data integrity.
+L5: nsystem overview an autonomo regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview an autonomou control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'medium_02',
+  category: 'medium',
+  text: 'System overview: A smart HVAC platform manages temperature and air quality in a commercial building.\\n' +
+    'Objectives: keep rooms within target temperature and humidity, and minimize energy use.\\n' +
+    'Operating environment: offices with variable occupancy and seasonal temperature swings.\\n' +
+    'Actors: building manager, occupants, and maintenance staff.\\n' +
+    'Interfaces: BACnet network to sensors, dampers, and chillers; cloud dashboard for reports.\\n' +
+    'Assumptions: sensors are installed in all zones and building layout does not change weekly.\\r\\n'
+}: medium_02 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a smart hva loss of mission outcome.
+L2: nsystem overview a smart hva injury to user.
+L3: nsystem overview a smart hva damage to equipment.
+L4: nsystem overview a smart hva loss of data integrity.
+L5: nsystem overview a smart hva regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a smart hvac control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'medium_03',
+  category: 'medium',
+  text: 'System overview: A rail signaling subsystem schedules train movements on a single-track corridor.\\n' +
+    'Objectives: prevent collisions, maintain safe separation, and keep arrival times within tolerance.\\n' +
+    'Operating environment: rural track with limited cellular coverage and occasional fog.\\n' +
+    'Actors: dispatch operator, train driver, and field technician.\\n' +
+    'Interfaces: radio link to trains, track sensors at block boundaries, and a dispatch console.\\n' +
+    'Assumptions: trains follow the issued movement authority without manual override except emergencies.\\r\\n'
+}: medium_03 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a rail sign loss of mission outcome.
+L2: nsystem overview a rail sign injury to user.
+L3: nsystem overview a rail sign damage to equipment.
+L4: nsystem overview a rail sign loss of data integrity.
+L5: nsystem overview a rail sign regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a rail signa control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'multi-domain_01',
+  category: 'multi-domain',
+  text: 'System overview: A telemedicine service links patient monitoring devices with a cloud analytics dashboard and a mobile clinician app.\\n' +
+    'Objectives: detect abnormal vital signs, notify clinicians quickly, and keep patient data secure.\\n' +
+    'Operating environment: home use, variable network connectivity, and mixed device vendors.\\n' +
+    'Actors: patient, clinician, and IT administrator.\\n' +
+    'Interfaces: Bluetooth sensors, cloud API, and mobile notifications.\\n' +
+    'Assumptions: patients charge devices nightly and clinicians acknowledge alerts within 10 minutes.\\r\\n'
+}: multi-domain_01 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a telemedic loss of mission outcome.
+L2: nsystem overview a telemedic injury to user.
+L3: nsystem overview a telemedic damage to equipment.
+L4: nsystem overview a telemedic loss of data integrity.
+L5: nsystem overview a telemedic regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a telemedici control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'multi-domain_02',
+  category: 'multi-domain',
+  text: 'System overview: A logistics platform coordinates autonomous forklifts, warehouse inventory, and fleet routing for delivery trucks.\\n' +
+    'Objectives: prevent collisions in the warehouse, maintain accurate inventory, and deliver on time.\\n' +
+    'Operating environment: indoor warehouse with Wi-Fi dead zones and outdoor delivery routes with traffic.\\n' +
+    'Actors: warehouse supervisor, forklift operator, and dispatch manager.\\n' +
+    'Interfaces: LiDAR sensors, warehouse management system, and vehicle telematics.\\n' +
+    'Assumptions: forklifts operate below 5 km/h indoors and GPS is available outdoors.\\r\\n'
+}: multi-domain_02 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a logistics loss of mission outcome.
+L2: nsystem overview a logistics injury to user.
+L3: nsystem overview a logistics damage to equipment.
+L4: nsystem overview a logistics loss of data integrity.
+L5: nsystem overview a logistics regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a logistics  control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'multi-domain_03',
+  category: 'multi-domain',
+  text: 'System overview: A coastal drone network monitors pollution, shares data with maritime authorities, and triggers emergency response workflows.\\n' +
+    'Objectives: detect contamination, alert agencies, and coordinate cleanup resources.\\n' +
+    'Operating environment: saltwater exposure, high winds, and limited bandwidth links.\\n' +
+    'Actors: drone pilot, environmental analyst, and coast guard coordinator.\\n' +
+    'Interfaces: satellite link, onboard sensors, and incident management system.\\n' +
+    'Assumptions: drones can return to base within 30 minutes and authorities staff a 24/7 response desk.\\r\\n'
+}: multi-domain_03 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem overview a coastal d loss of mission outcome.
+L2: nsystem overview a coastal d injury to user.
+L3: nsystem overview a coastal d damage to equipment.
+L4: nsystem overview a coastal d loss of data integrity.
+L5: nsystem overview a coastal d regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system overview a coastal dr control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'short_01',
+  category: 'short',
+  text: 'System description: A small quadcopter delivers packages across a campus.\\n' +
+    'Operators set delivery zones and no-fly areas.\\n' +
+    'The drone uses GPS and onboard sensors to maintain altitude and avoid obstacles.\\n' +
+    'It returns to a docking station for charging and data upload.\\r\\n'
+}: short_01 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem description a small  loss of mission outcome.
+L2: nsystem description a small  injury to user.
+L3: nsystem description a small  damage to equipment.
+L4: nsystem description a small  loss of data integrity.
+L5: nsystem description a small  regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system description a small q control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'short_02',
+  category: 'short',
+  text: 'System description: A hospital infusion pump delivers medication to patients.\\n' +
+    'Nurses configure dosage, flow rate, and start/stop times.\\n' +
+    'The pump alerts staff if limits are exceeded or a line is blocked.\\n' +
+    'Patient ID must match the prescription before infusion starts.\\r\\n'
+}: short_02 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nsystem description a hospit loss of mission outcome.
+L2: nsystem description a hospit injury to user.
+L3: nsystem description a hospit damage to equipment.
+L4: nsystem description a hospit loss of data integrity.
+L5: nsystem description a hospit regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+system description a hospita control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'under-specified_01',
+  category: 'under-specified',
+  text: 'A system manages tasks and alerts users when something changes.\\n' +
+    'It is used in many places and must be reliable.\\r\\n'
+}: under-specified_01 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: na system manages tasks and  loss of mission outcome.
+L2: na system manages tasks and  injury to user.
+L3: na system manages tasks and  damage to equipment.
+L4: na system manages tasks and  loss of data integrity.
+L5: na system manages tasks and  regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+a system manages tasks and a control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;
+
+exports[`guided step snapshots snapshot: {
+  name: 'under-specified_02',
+  category: 'under-specified',
+  text: 'This platform collects data and makes decisions automatically.\\n' +
+    'It should be safe and efficient.\\r\\n'
+}: under-specified_02 1`] = `
+{
+  "step1": "=== LOSSES ===
+L1: nthis platform collects data loss of mission outcome.
+L2: nthis platform collects data injury to user.
+L3: nthis platform collects data damage to equipment.
+L4: nthis platform collects data loss of data integrity.
+L5: nthis platform collects data regulatory breach.
+
+=== HAZARDS ===
+H1: The controlled process enters an unsafe state while normal operation. (leads_to: L1, L2)
+H2: The controlled process deviates from safe limits during peak load. (leads_to: L2)
+H3: The controlled process exceeds safe energy exposure during use. (leads_to: L3)
+H4: The controlled process operates with incorrect routing or targeting. (leads_to: L4)
+H5: The controlled process remains uncontrolled in degraded conditions. (leads_to: L5)
+H6: The controlled process continues unsafe operation without warning. (leads_to: L1)
+
+=== SAFETY CONSTRAINTS ===
+SC1: The system shall keep the controlled process within safe limits. (addresses: H1)
+SC2: The system shall not allow unsafe peak-load operation. (addresses: H2)
+SC3: The system shall prevent unsafe energy exposure. (addresses: H3)
+SC4: The system shall ensure correct routing or targeting. (addresses: H4)
+SC5: The system shall enter a safe mode in degraded conditions. (addresses: H5)
+SC6: The system shall provide timely warnings for unsafe operation. (addresses: H6)
+SC7: The system shall constrain operation to safe envelopes. (addresses: H1)
+SC8: The system shall block hazardous transitions. (addresses: H2)
+
+=== REFINED HAZARDS ===
+H1 refinement: Normal operation with nominal load and typical environment.
+H2 refinement: Peak load, high workload, or maximum throughput conditions.
+H3 refinement: High energy demand or limited dissipation conditions.
+H4 refinement: Conflicting objectives or ambiguous operating context.
+H5 refinement: Partial capability loss or degraded sensing conditions.
+H6 refinement: High noise, low visibility, or delayed feedback.
+
+=== MISSING INFORMATION ===
+- None
+
+=== TABLE A: LOSS TO HAZARDS ===
+| Loss | Hazards |
+| --- | --- |
+| L1 | H1; H6 |
+| L2 | H1; H2 |
+| L3 | H3 |
+| L4 | H4 |
+| L5 | H5 |
+
+=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ===
+| Hazard | Safety Constraints |
+| --- | --- |
+| H1 | SC1; SC7 |
+| H2 | SC2; SC8 |
+| H3 | SC3 |
+| H4 | SC4 |
+| H5 | SC5 |
+| H6 | SC6 |",
+  "step2": "=== CONTROL_STRUCTURE_TEXT ===
+this platform collects data  control structure with two controllers and a single controlled process.
+
+=== CONTROLLERS ===
+C1: Primary controller (type: software) - issues commands.
+C2: Secondary controller (type: human) - supervises operation.
+
+=== CONTROLLED_PROCESSES ===
+P1: Controlled process - core system dynamics.
+
+=== ACTUATORS ===
+A1: Primary actuator (affects: P1) - executes commands.
+
+=== SENSORS ===
+S1: Primary sensor (measures: P1) - reports state.
+S2: Secondary sensor (measures: P1) - reports limits.
+
+=== EXTERNAL_SYSTEMS ===
+X1: External dependency - provides reference data.
+
+=== CONTROL_ACTIONS ===
+CA1: C1 -> Issue command A.
+CA2: C1 -> Issue command B.
+CA3: C2 -> Approve or override.
+CA4: C2 -> Escalate to safe mode.
+
+=== FEEDBACK ===
+F1: S1 -> C1 : state estimate - core feedback.
+F2: S2 -> C2 : limit status - safety feedback.
+
+=== CONTROL_LOOPS ===
+LOOP1: controller=C1; controlled_process=P1; actuators=[A1]; control_actions=[CA1, CA2]; feedback=[F1]
+LOOP2: controller=C2; controlled_process=P1; actuators=[A1]; control_actions=[CA3, CA4]; feedback=[F2]
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| Loop | Controller | Control Actions | Actuators | Controlled Process | Feedback |
+| --- | --- | --- | --- | --- | --- |
+| LOOP1 | C1 | CA1; CA2 | A1 | P1 | F1 |
+| LOOP2 | C2 | CA3; CA4 | A1 | P1 | F2 |",
+  "step3": "=== UCAS ===
+UCA1: (type: omission) (controller: C1) (control_action: CA1) Action not issued under high load. (leads_to: H1; H2)
+UCA2: (type: commission) (controller: C1) (control_action: CA2) Action issued in unsafe context. (leads_to: H3)
+UCA3: (type: timing) (controller: C2) (control_action: CA3) Override issued too late. (leads_to: H4)
+UCA4: (type: duration) (controller: C2) (control_action: CA4) Safe mode ended too soon. (leads_to: H5)
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| UCA | Type | Controller | Control Action | Hazards |
+| --- | --- | --- | --- | --- |
+| UCA1 | omission | C1 | CA1 | H1; H2 |
+| UCA2 | commission | C1 | CA2 | H3 |
+| UCA3 | timing | C2 | CA3 | H4 |
+| UCA4 | duration | C2 | CA4 | H5 |",
+  "step4": "=== LOSS SCENARIOS ===
+LS1: (linked_ucas: UCA1) (linked_hazards: H1) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 1 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS2: (linked_ucas: UCA2) (linked_hazards: H2) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 2 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS3: (linked_ucas: UCA3) (linked_hazards: H3) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 3 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS4: (linked_ucas: UCA4) (linked_hazards: H4) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 4 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS5: (linked_ucas: UCA1) (linked_hazards: H5) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 5 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS6: (linked_ucas: UCA2) (linked_hazards: H6) (linked_losses: L1) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 6 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS7: (linked_ucas: UCA3) (linked_hazards: H1) (linked_losses: L2) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 7 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS8: (linked_ucas: UCA4) (linked_hazards: H2) (linked_losses: L3) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 8 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS9: (linked_ucas: UCA1) (linked_hazards: H3) (linked_losses: L4) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 9 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+LS10: (linked_ucas: UCA2) (linked_hazards: H4) (linked_losses: L5) (trace: C1/CA1/A1/P1; feedback: F1; sensors: S1) Scenario 10 narrative. {factors: controller_process_model=assumption gap; feedback_and_sensing=stale value; actuator_and_control_path=limited authority; controlled_process_and_dynamics=delay; human_and_organization=handoff gap; communication_and_coordination=message loss; environment_and_disturbances=interference}
+
+=== MISSING INFORMATION ===
+- None
+
+=== SUMMARY TABLE ===
+| LS | UCAs | Hazards | Losses | Control loop | Key factors |
+| --- | --- | --- | --- | --- | --- |
+| LS1 | UCA1 | H1 | L1 | C1; CA1; A1; P1 | stale feedback; timing |
+| LS2 | UCA2 | H2 | L2 | C1; CA2; A1; P1 | authority limit; delay |
+| LS3 | UCA3 | H3 | L3 | C2; CA3; A1; P1 | handoff gap; noise |
+| LS4 | UCA4 | H4 | L4 | C2; CA4; A1; P1 | model mismatch; delay |
+| LS5 | UCA1 | H5 | L5 | C1; CA1; A1; P1 | stale feedback; load |
+| LS6 | UCA2 | H6 | L1 | C1; CA2; A1; P1 | authority limit; noise |
+| LS7 | UCA3 | H1 | L2 | C2; CA3; A1; P1 | handoff gap; delay |
+| LS8 | UCA4 | H2 | L3 | C2; CA4; A1; P1 | model mismatch; timing |
+| LS9 | UCA1 | H3 | L4 | C1; CA1; A1; P1 | stale feedback; load |
+| LS10 | UCA2 | H4 | L5 | C1; CA2; A1; P1 | authority limit; delay |",
+}
+`;

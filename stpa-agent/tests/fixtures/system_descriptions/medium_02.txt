@@ -1,6 +1,0 @@
-System overview: A smart HVAC platform manages temperature and air quality in a commercial building.
-Objectives: keep rooms within target temperature and humidity, and minimize energy use.
-Operating environment: offices with variable occupancy and seasonal temperature swings.
-Actors: building manager, occupants, and maintenance staff.
-Interfaces: BACnet network to sensors, dampers, and chillers; cloud dashboard for reports.
-Assumptions: sensors are installed in all zones and building layout does not change weekly.

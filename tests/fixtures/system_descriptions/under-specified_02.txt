@@ -1,0 +1,2 @@
+This platform collects data and makes decisions automatically.
+It should be safe and efficient.

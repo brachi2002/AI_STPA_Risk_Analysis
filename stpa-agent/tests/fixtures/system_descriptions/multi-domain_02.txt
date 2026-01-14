@@ -1,6 +1,0 @@
-System overview: A logistics platform coordinates autonomous forklifts, warehouse inventory, and fleet routing for delivery trucks.
-Objectives: prevent collisions in the warehouse, maintain accurate inventory, and deliver on time.
-Operating environment: indoor warehouse with Wi-Fi dead zones and outdoor delivery routes with traffic.
-Actors: warehouse supervisor, forklift operator, and dispatch manager.
-Interfaces: LiDAR sensors, warehouse management system, and vehicle telematics.
-Assumptions: forklifts operate below 5 km/h indoors and GPS is available outdoors.

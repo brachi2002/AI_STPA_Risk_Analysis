@@ -1,0 +1,4 @@
+System description: A small quadcopter delivers packages across a campus.
+Operators set delivery zones and no-fly areas.
+The drone uses GPS and onboard sensors to maintain altitude and avoid obstacles.
+It returns to a docking station for charging and data upload.

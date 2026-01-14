@@ -1,8 +1,0 @@
-System overview: A regional electric grid management system coordinates power generation, storage, and demand response across multiple substations.
-Objectives: maintain frequency and voltage within regulatory limits, prevent blackouts, and optimize cost.
-Operating environment: seasonal demand peaks, storms, and variable renewable generation.
-Actors: grid operator, utility dispatcher, and field crews.
-Scope: control center software, telemetry, and dispatch commands to generators and storage; out of scope are customer-owned microgrids.
-Interfaces: SCADA network, telemetry from substations, and market price feeds.
-Assumptions: telemetry updates every 2 seconds, field crews can isolate a substation within 30 minutes, and communication links have redundant paths.
-Additional context: the system must coordinate with a demand response program that can shed up to 5 percent of load within 5 minutes.

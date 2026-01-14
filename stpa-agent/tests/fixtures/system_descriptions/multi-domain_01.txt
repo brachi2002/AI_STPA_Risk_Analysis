@@ -1,6 +1,0 @@
-System overview: A telemedicine service links patient monitoring devices with a cloud analytics dashboard and a mobile clinician app.
-Objectives: detect abnormal vital signs, notify clinicians quickly, and keep patient data secure.
-Operating environment: home use, variable network connectivity, and mixed device vendors.
-Actors: patient, clinician, and IT administrator.
-Interfaces: Bluetooth sensors, cloud API, and mobile notifications.
-Assumptions: patients charge devices nightly and clinicians acknowledge alerts within 10 minutes.

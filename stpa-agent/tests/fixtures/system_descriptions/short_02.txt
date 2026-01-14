@@ -1,4 +1,0 @@
-System description: A hospital infusion pump delivers medication to patients.
-Nurses configure dosage, flow rate, and start/stop times.
-The pump alerts staff if limits are exceeded or a line is blocked.
-Patient ID must match the prescription before infusion starts.

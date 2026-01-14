@@ -1,0 +1,6 @@
+System overview: An autonomous shuttle transports passengers on a fixed downtown loop.
+Objectives: maintain safe headway, stop accurately at stations, and avoid collisions with pedestrians.
+Operating environment: mixed traffic, day/night, light rain, and occasional road closures.
+Actors: safety driver, remote supervisor, and maintenance technician.
+Scope: onboard control software, sensors, braking, and steering; out of scope is city traffic control.
+Assumptions: road markings are visible and a remote operator is available during service hours.

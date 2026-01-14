@@ -1,0 +1,6 @@
+System overview: A coastal drone network monitors pollution, shares data with maritime authorities, and triggers emergency response workflows.
+Objectives: detect contamination, alert agencies, and coordinate cleanup resources.
+Operating environment: saltwater exposure, high winds, and limited bandwidth links.
+Actors: drone pilot, environmental analyst, and coast guard coordinator.
+Interfaces: satellite link, onboard sensors, and incident management system.
+Assumptions: drones can return to base within 30 minutes and authorities staff a 24/7 response desk.

@@ -1,2 +1,0 @@
-A system manages tasks and alerts users when something changes.
-It is used in many places and must be reliable.
