@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Build outputs
 out/
+coverage/
 dist/
 *.js.map
 
@@ -15,6 +16,7 @@ dist/
 # VSCode
 .vscode/
 *.code-workspace
+.vscode-test/
 
 # OS files
 .DS_Store
