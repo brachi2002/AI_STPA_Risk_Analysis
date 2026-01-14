@@ -549,12 +549,14 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
       .action-btn.secondary {
         background: rgba(255, 255, 255, 0.85);
         border-color: rgba(136, 145, 183, 0.6);
+        color: #111;
       }
 
       .action-btn.secondary:hover,
       .action-btn.secondary:focus-visible {
         background: rgba(255, 255, 255, 1);
         border-color: rgba(69, 79, 112, 0.7);
+        color: #111;
       }
 
       .busy textarea,
