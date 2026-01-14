@@ -39,3 +39,4 @@ temp/
 out/
 *.js.map
 *.js
+!stpa-agent/media/main.js
