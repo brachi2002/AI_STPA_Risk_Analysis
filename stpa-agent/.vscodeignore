@@ -13,6 +13,5 @@ vsc-extension-quickstart.md
 .env.*
 **/.env
 **/.env.*
-node_modules/**
 coverage/**
 
