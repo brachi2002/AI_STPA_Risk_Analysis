@@ -3,7 +3,8 @@
   "displayName": "STPA Agent",
   "description": "AI STPA risk analysis helper",
   "version": "0.0.1",
-  "publisher": "brachi and ayele",
+  "icon": "media/icon.png",
+  "publisher": "brachi-ayelet",
   "repository": {
     "type": "git",
     "url": "https://github.com/brachi2002/AI_STPA_Risk_Analysis.git"
