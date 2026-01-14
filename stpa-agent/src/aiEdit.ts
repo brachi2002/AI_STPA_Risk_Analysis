@@ -4,6 +4,10 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
+/**
+ * Helpers for STPA Smart Edit workflows: section analysis, grounding validation, normalization, and plan validation.
+ */
+
 /** Which STPA item type is being edited */
 export type EditKind =
   | 'loss'
@@ -337,6 +341,9 @@ function detectOpFromInstruction(instr: string): EditOp {
 
 type SectionRange = { start: number; end: number };
 
+/**
+ * Find the span of lines covered by the heading that matches `headingRx`.
+ */
 export function findSectionRangeByHeading(lines: string[], headingRx: RegExp): SectionRange | null {
   const nextHeadRx = /^\s*(\[[^\]]+\]|===\s*.+\s*===|##\s*Step\s*[1-4]\b)\s*$/i;
   const start = lines.findIndex((l) => headingRx.test(l));
@@ -351,6 +358,9 @@ export function findSectionRangeByHeading(lines: string[], headingRx: RegExp): S
   return { start, end };
 }
 
+/**
+ * Determine the start/end lines that belong to the body of a guided step (1-4).
+ */
 export function findGuidedStepBodyRange(lines: string[], step: 1 | 2 | 3 | 4): { start: number; end: number } | null {
   const headRe = new RegExp(`^##\\s*Step\\s*${step}\\b`, 'i');
   let head = -1;
@@ -371,6 +381,9 @@ export function findGuidedStepBodyRange(lines: string[], step: 1 | 2 | 3 | 4): {
   return { start, end };
 }
 
+/**
+ * Ensure the requested section heading exists within the appropriate guided step, inserting it if needed.
+ */
 export function ensureSectionExistsInsideStep(lines: string[], section: SectionTag): number {
   const step = stepForSection(section);
   const stepRange = findGuidedStepBodyRange(lines, step);
@@ -380,6 +393,9 @@ export function ensureSectionExistsInsideStep(lines: string[], section: SectionT
   return insertAt + 2;
 }
 
+/**
+ * Determine where a new entry for a given kind should be inserted in its section.
+ */
 export function findInsertLineInSection(lines: string[], meta: KindMeta): number {
   const range = findSectionRangeByHeading(lines, meta.headingRx);
   if (!range) {
@@ -440,6 +456,9 @@ function normalizeGeneratedLines(raw: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Validate that the generated Smart Edit lines follow the required syntax for the target edit kind.
+ */
 export function validateGeneratedLines(kind: EditKind, lines: string[]): string | null {
   if (!lines.length) {
     return 'Model returned no lines.';
@@ -762,6 +781,9 @@ function extractEntityPhrases(systemDescription: string): string[] {
   return Array.from(phrases);
 }
 
+/**
+ * Ensure each generated line references entities from the provided system context or current section.
+ */
 export function validateAddGrounding(lines: string[], systemContext: string, currentSection: string): string | null {
   const contextText = `${systemContext}\n${currentSection}`.trim();
   const contextKeywords = tokenizeMeaningfulKeywords(contextText);
@@ -802,6 +824,9 @@ export function validateAddGrounding(lines: string[], systemContext: string, cur
   return null;
 }
 
+/**
+ * Gather textual context for grounding lines: system description plus the active section block.
+ */
 export function buildAddGroundingContext(docText: string, headingRx: RegExp): { systemContext: string; currentSection: string } {
   const currentSection = extractSectionBlock(docText, headingRx);
   const systemDescription = extractSystemDescriptionBlock(docText);
@@ -1080,6 +1105,9 @@ type Step1NormalizeResult = {
   changed: boolean;
 };
 
+/**
+ * Normalize Step 1 sections (losses, hazards, safety constraints) and renumber entries if requested.
+ */
 export function normalizeStep1Text(docText: string, opts?: { renumber?: boolean }): Step1NormalizeResult {
   const trailingNewlineMatch = docText.match(/(\r?\n)+$/);
   const trailingNewline = trailingNewlineMatch ? trailingNewlineMatch[0] : '';
@@ -1188,6 +1216,9 @@ type Step2NormalizeResult = {
   changed: boolean;
 };
 
+/**
+ * Normalize Step 2 sections (controllers, processes, actuators, sensors, etc.) with optional renumbering.
+ */
 export function normalizeStep2Text(docText: string, opts?: { renumber?: boolean }): Step2NormalizeResult {
   const trailingNewlineMatch = docText.match(/(\r?\n)+$/);
   const trailingNewline = trailingNewlineMatch ? trailingNewlineMatch[0] : '';
@@ -1240,6 +1271,9 @@ type UcaNormalizeResult = {
   changed: boolean;
 };
 
+/**
+ * Normalize the UCA section, renumbering entries uniformly if desired.
+ */
 export function normalizeUcaText(docText: string, opts?: { renumber?: boolean }): UcaNormalizeResult {
   const trailingNewlineMatch = docText.match(/(\r?\n)+$/);
   const trailingNewline = trailingNewlineMatch ? trailingNewlineMatch[0] : '';
@@ -1438,6 +1472,9 @@ function buildStep1RepairPrompt(docText: string, issues: Step1Issues): string {
   ].join('\n');
 }
 
+/**
+ * Check that a proposed Step 1 completion plan contains valid add-only hazards/constraints references.
+ */
 export function validateStep1Plan(plan: SmartEditPlan): string | null {
   if (!plan.actions || !plan.actions.length) {
     return 'Plan has no actions.';
@@ -1564,6 +1601,9 @@ function buildStep2CompletionPrompt(docText: string, issues: Step2Issues, loopId
   ].join('\n');
 }
 
+/**
+ * Ensure a Step 2 repair plan targets UCAs only with the correct control loop and hazard structure.
+ */
 export function validateStep2Plan(plan: SmartEditPlan): string | null {
   if (!plan.actions || !plan.actions.length) {
     return 'Plan has no actions.';

@@ -1,7 +1,15 @@
 import * as vscode from 'vscode';
 
+/**
+ * Helpers for validating user-provided system descriptions before running STPA prompts.
+ */
+
+/** Severity levels emitted by the validator. */
 export type Severity = 'error' | 'warn' | 'info';
 
+/**
+ * Represents a single validation warning/error returned by `validateInput`.
+ */
 export interface ValidationIssue {
     id: string;       // e.g., "MISSING_OBJECTIVES"
     message: string;  // human-friendly
@@ -9,14 +17,21 @@ export interface ValidationIssue {
     severity: Severity;
 }
 
+/**
+ * The aggregate result of running the input validator, including score and issues.
+ */
 export interface ValidationResult {
     issues: ValidationIssue[];
     score: number;    // 0..100
     summary: string;
 }
 
+/** Which validator stage to use (guided steps vs classic). */
 export type ValidationStage = 'step1' | 'step2' | 'classic';
 
+/**
+ * Optional configuration for how `validateInput` evaluates the text.
+ */
 export interface ValidateOptions {
     stage?: ValidationStage;
     languageId?: string; // VS Code document.languageId if available
@@ -68,7 +83,7 @@ function countMatches(text: string, patterns: RegExp[]): number {
     return c;
 }
 
-/** Minimum readiness check before sending to LLM */
+/** Evaluate the document with stage-aware heuristics before invoking the LLM. */
 export function validateInput(text: string, opts: ValidateOptions = {}): ValidationResult {
     const stage: ValidationStage = opts.stage ?? 'classic';
     const t = text || '';
@@ -287,7 +302,9 @@ export function validateInput(text: string, opts: ValidateOptions = {}): Validat
     return { issues, score, summary };
 }
 
-/** Pretty table for Output */
+/**
+ * Render the validation issues as a fixed-width table for the output channel.
+ */
 export function formatIssuesTable(result: ValidationResult): string {
     if (result.issues.length === 0) {
         return `Pre-Check ✓  ${result.summary}\n`;
@@ -316,7 +333,9 @@ function pad(s: string, n: number): string {
     return (s + ' '.repeat(n)).slice(0, n);
 }
 
-/** Prompt user: Continue / Refine / Auto-complete with AI */
+/**
+ * Prompt the user with actions when blocking issues remain, letting them continue or auto-fix.
+ */
 export async function promptOnIssues(result: ValidationResult): Promise<'continue' | 'cancel' | 'autofix'> {
     if (result.issues.length === 0) {
         return 'continue';

@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
+/**
+ * Inline completion helpers tuned for STPA description sections.
+ */
 const TRIGGERS = [
     /^sensors:\s*$/i,
     /^actuators:\s*$/i,
@@ -9,6 +12,9 @@ const TRIGGERS = [
     /^environment:\s*$/i,
 ];
 
+/**
+ * Register an inline completion provider that asks the model to continue lists for key sections.
+ */
 export function registerInlineCompletion(apiKeyProvider: () => string | undefined) {
     const provider: vscode.InlineCompletionItemProvider = {
         async provideInlineCompletionItems(document, position) {

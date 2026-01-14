@@ -1,4 +1,7 @@
 // renderGuided.ts
+/**
+ * Safely parse JSON text without throwing to support downstream guided renderers.
+ */
 export function safeJsonParse<T = any>(text: string): T | null {
     try {
         return JSON.parse(text);
@@ -109,6 +112,9 @@ export function renderGuidedMarkdown(input: any): string {
     ].join('\n');
 }
 
+/**
+ * Render Step 1 losses, hazards, constraints, and refinements as Markdown lists.
+ */
 export function renderStep1Markdown(data: any): string {
     const ref = data?.reference ? `**Reference:** ${data.reference}\n\n` : '';
     const losses = (data?.losses ?? []).map((l: any) => `- **${l.id}:** ${l.description}`).join('\n');
@@ -136,6 +142,9 @@ export function renderStep1Markdown(data: any): string {
     ].join('\n');
 }
 
+/**
+ * Render Step 2 control structure components and relationships into Markdown sections.
+ */
 export function renderStep2Markdown(data: any): string {
     const ref = data?.reference ? `**Reference:** ${data.reference}\n\n` : '';
     const cs = data?.control_structure ?? {};
@@ -165,6 +174,9 @@ export function renderStep2Markdown(data: any): string {
     ].join('\n');
 }
 
+/**
+ * Render Step 3 unsafe control actions and their summary table as Markdown.
+ */
 export function renderStep3Markdown(data: any): string {
     const ref = data?.reference ? `**Reference:** ${data.reference}\n\n` : '';
     const ucas = (data?.unsafe_control_actions ?? []).map((u: any) => {
@@ -187,6 +199,9 @@ export function renderStep3Markdown(data: any): string {
     return [ref, '### Unsafe Control Actions (UCAs)', ucas, tableMd].join('\n');
 }
 
+/**
+ * Render Step 4 loss scenarios and their summary table as Markdown.
+ */
 export function renderStep4Markdown(data: any): string {
     const ref = data?.reference ? `**Reference:** ${data.reference}\n\n` : '';
     const ls = (data?.loss_scenarios ?? []).map((s: any) => {

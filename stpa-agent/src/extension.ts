@@ -19,10 +19,11 @@ import { registerInlineCompletion } from './inlineCompletion';
 import { applySmartEditPlan, smartEditFromChat, type SmartEditPlan, type EditScope } from './aiEdit';
 
 // tables + diagrams + cs extract
-import { buildMarkdownTables } from './tables';
+import { buildMarkdownTables, parseHazardRow } from './tables';
 import { buildControlStructureMermaid, buildImpactGraphMermaid } from './diagrams';
-import { deriveControlStructFromText } from './csExtract';
+import { deriveControlStructFromText, parseStep2ControlStructure } from './csExtract';
 import type { SystemType, StpaResult, ControlStructInput } from './types';
+import { buildStagePayload, StageContext, UiStage } from './uiFlow';
 
 /** -----------------------------------------------
  * ENV
@@ -282,60 +283,66 @@ export function buildStep1Prompt(systemText: string, systemType: SystemType): st
 		`Domain / system type hint: ${systemType}.`,
 		'',
 		'PRIMARY GOAL:',
-		'- Produce academically credible Step 1 artifacts that can drive Step 2–4 without rework.',
+		'- Produce academically credible Step 1 artifacts that can drive Step 2-4 without rework.',
 		'',
 		'MANDATORY DEFINITIONS (use exactly):',
 		'- Loss (L): an unacceptable outcome or harm to people, mission, property, environment, or public trust.',
 		'- Hazard (H): a system state or set of conditions of the CONTROLLED PROCESS that, with worst-case environmental conditions, will lead to one or more losses.',
-		'- Safety Constraint (SC): a system-level requirement/restriction on behavior that prevents or mitigates a hazard.',
+		'- Safety Constraint (SC): a system-level requirement or restriction on behavior that prevents or mitigates a hazard.',
 		'- Hazard Refinement: operational context / ODD / worst-case assumptions ONLY (no causes).',
 		'',
 		'CONTROLLED PROCESS ANCHOR (MANDATORY):',
 		'- Identify the controlled process implied by the system text (e.g., vehicle motion/spacing, medication delivery, industrial pressure/temperature, etc.).',
 		'- Hazards MUST describe unsafe STATES/CONDITIONS of that controlled process in the environment.',
+		'- Hazards must NOT describe actions, failures, or internal mechanisms.',
+		'- If you catch yourself describing a component failure, rewrite it as an unsafe controlled-process state observable in the environment.',
 		'',
 		'HAZARDS (H#): 10/10 RULESET (HARD):',
 		'1) Hazards must be EXTERNALLY OBSERVABLE unsafe states/conditions (WHAT is unsafe), not internal reasons (WHY).',
-		'2) Hazards must NOT be phrased as "the system fails/does not/too late/misjudges/detects incorrectly". Those belong to Step 3/4.',
-		'3) Hazards should reference controlled-process variables when applicable:',
-		'   - Examples of variables: speed, distance gap, time-to-collision, pressure, temperature, dosage, position, energy exposure, access state, etc.',
-		'4) Hazards must be system-level, not component-level (no sensors/software/algorithms/networks).',
+		'2) Hazards must clearly describe what the controlled process is doing when unsafe, not which component failed.',
+		'3) Hazards must NOT be phrased as "the system fails", "does not", "too late", "misjudges" or "detects incorrectly".',
+		'4) Hazards should reference controlled-process variables when applicable: speed, distance gap, time-to-collision, pressure, temperature, dosage, position, energy exposure, access state, etc.',
+		'5) Hazards must be system-level, not component-level (no sensors/software/algorithms/networks).',
 		'',
 		'FORBIDDEN IN HAZARDS (rewrite until none appear):',
-		'- failure / fails / failed',
-		'- too late / late / delay / delayed',
+		'- failure / fails / failed / failing',
 		'- does not / not apply / not provide / missing (when used as an action mistake)',
-		'- detect / detection / mis-detect / misjudge / inaccurate / accuracy',
-		'- sensor / camera / radar / lidar / software / algorithm / controller / network / communication',
+		'- late / delay / too early / too late (when describing timing errors)',
+		'- logging / record / database / audit trail',
+		'- sensor / camera / radar / lidar / software / algorithm / controller / network / communication / EHR',
+		'- component-centric phrasing such as "drawer fails" or "scanner error"',
 		'- causal wording: because / due to / caused by / results from',
 		'',
 		'MANDATORY HAZARD SENTENCE FORM:',
 		'"The controlled process <UNSAFE_STATE_PHRASE> while <operational context>. (leads_to: L#, L#)"',
 		'',
 		'UNSAFE_STATE_PHRASE RULES:',
-		'- 3–14 words, externally observable, state/condition only.',
-		'- Examples of acceptable patterns (adapt, do NOT copy blindly):',
+		'- 3-14 words, externally observable, state/condition only.',
+		'- Mention the controlled process PLUS the unsafe state and the environment/context where it occurs.',
+		'- Examples (adapt, do NOT copy blindly):',
 		'  • "maintains unsafe separation distance to a person"',
 		'  • "closes on an obstacle with insufficient deceleration"',
 		'  • "operates with braking demand exceeding available traction"',
 		'  • "releases hazardous energy beyond safe limits"',
 		'  • "executes an irreversible action on the wrong target"',
-		'  • "presents no effective warning when collision risk is imminent" (warning is observable state)',
+		'  • "presents no effective warning when collision risk is imminent" (warning recorded as observable state)',
 		'',
 		'REFINED HAZARDS:',
 		'- Exactly one refinement line per hazard.',
-		'- Refinement adds ODD + worst-case assumptions (weather, visibility, workload, traffic density, etc.).',
+		'- Refinement adds context/ODD/worst-case assumptions (weather, visibility loss, degraded communications, workload spikes, power degradation, time pressure, degraded mode).',
+		'- Do NOT repeat the hazard phrasing or write "under normal operational conditions".',
 		'- No causes, no failures, no components.',
 		'',
 		'SAFETY CONSTRAINTS (SC#): 10/10 RULESET (HARD):',
-		'1) Constraints must be system-level "shall/shall not" statements describing OBSERVABLE required/forbidden behavior.',
-		'2) Constraints must directly prevent/mitigate the hazard state (match the unsafe state).',
+		'1) Constraints must describe system-level, observable behavior with gating or conditional phrasing (e.g., shall permit/allow/issue/execute only when…, shall ensure/prevent… before/while…, shall provide warning/indication when…).',
+		'2) Each constraint must directly prevent or mitigate the hazard state (match the unsafe state).',
 		'3) Do NOT prescribe internal design solutions (no sensors/software/algorithms).',
 		'',
 		'FORBIDDEN IN CONSTRAINTS (rewrite until none appear):',
 		'- detect / detection / false positives / false negatives',
 		'- sensor / software / algorithm / controller / network / communication',
 		'- accuracy / assessment quality / performance / reliability / robust',
+		'- shall not administer incorrect… / shall not do no… (describe the allowed/prevented behavior instead)',
 		'',
 		'LOSS COVERAGE RULE (HARD):',
 		'- Every Loss Li MUST appear in at least one hazard (leads_to: ... Li ...).',
@@ -349,6 +356,11 @@ export function buildStep1Prompt(systemText: string, systemType: SystemType): st
 		'DERIVED TABLES (MUST BE CONSISTENT, NO INVENTION):',
 		'- Table A: Loss -> Hazards derived ONLY from (leads_to). Use "; " between IDs.',
 		'- Table B: Hazard -> Safety Constraints derived ONLY from (addresses). Use "; " between IDs.',
+		'',
+		'TABLE CONSISTENCY RULE (SELF-CHECK):',
+		'- Every Loss Li must appear in at least one hazard leads_to mapping and the same mapping must be reflected in Table A.',
+		'- Table B must use ONLY addresses data and cover every hazard that has an SC.',
+		'- If Table A/B do not match the leads_to/addresses above, revise the hazards or constraints until they align.',
 		'',
 		'FINAL SELF-CHECK (DO NOT SKIP):',
 		'1) Each hazard is a controlled-process unsafe state/condition (not an action mistake).',
@@ -390,11 +402,13 @@ export function buildStep1Prompt(systemText: string, systemType: SystemType): st
 		'| --- | --- |',
 		'| H# | SC#; SC# |',
 		'',
+		'READ-ONLY SYSTEM DESCRIPTION (INPUT ONLY – DO NOT REPEAT IN OUTPUT):',
 		'--- SYSTEM TEXT START ---',
 		systemText,
 		'--- SYSTEM TEXT END ---',
-	].join('\n');
+	].join('\\n');
 }
+
 
 /**
  * STEP 2 (10/10 target)
@@ -573,6 +587,7 @@ export function buildStep3Prompt(
 		'',
 		'=== SUMMARY TABLE ===',
 		'Provide ONE concise markdown table with columns:',
+		'Do NOT wrap this table in triple backticks (no ```).',
 		'| UCA | Type | Controller | Control Action | Hazards |',
 		'| --- | --- | --- | --- | --- |',
 		'| UCA1 | omission | C1 | CA1 | H1; H2 |',
@@ -672,6 +687,7 @@ export function buildStep4Prompt(
 		'=== SUMMARY TABLE ===',
 		'Output EXACTLY one markdown table and nothing else in this section.',
 		'No extra text is allowed in the SUMMARY TABLE section.',
+		'Do NOT wrap this table in triple backticks (no ```).',
 		'The first five columns MUST contain ONLY IDs separated by "; ".',
 		'The "Key factors" column must contain only short keywords (2–6 words), not sentences.',
 		'| LS | UCAs | Hazards | Losses | Control loop | Key factors |',
@@ -689,6 +705,212 @@ async function runStepText(apiKey: string, prompt: string): Promise<string> {
 	});
 
 	return (resp.choices?.[0]?.message?.content || '').trim();
+}
+
+export function sanitizeSummaryTableSection(stepText: string): string {
+	const header = '=== SUMMARY TABLE ===';
+	const headerIndex = stepText.indexOf(header);
+	if (headerIndex === -1) return stepText;
+
+	const afterHeader = headerIndex + header.length;
+	const remainder = stepText.slice(afterHeader);
+	const nextHeadingMatch = remainder.match(/\n===\s+[A-Z0-9 _]+===/);
+	const nextHeadingIndex = nextHeadingMatch?.index;
+	const sectionEnd = typeof nextHeadingIndex === 'number' ? afterHeader + nextHeadingIndex : stepText.length;
+	const sectionBody = stepText.slice(afterHeader, sectionEnd);
+
+	const lines = sectionBody.split(/\r?\n/);
+	const withoutFences = lines.filter((line) => !/^```/.test(line.trim()));
+	const tableLines = withoutFences.filter((line) => line.trim().startsWith('|'));
+
+	if (tableLines.length) {
+		const sanitizedSection = `${header}\n\n${tableLines.join('\n')}`;
+		return stepText.slice(0, headerIndex) + sanitizedSection + stepText.slice(sectionEnd);
+	}
+
+	const cleanedBody = withoutFences.join('\n').trimEnd();
+	const sanitizedSection = `${header}${cleanedBody ? `\n${cleanedBody}` : ''}`;
+	return stepText.slice(0, headerIndex) + sanitizedSection + stepText.slice(sectionEnd);
+}
+function extractSectionBody(text: string, heading: string): string | null {
+	const startIndex = text.indexOf(heading);
+	if (startIndex === -1) return null;
+	const remainder = text.slice(startIndex + heading.length).replace(/^\r?\n/, '');
+	const nextHeadingMatch = remainder.match(/\n===\s+[A-Z0-9 :]+===/);
+	const endIndex = typeof nextHeadingMatch?.index === 'number' ? nextHeadingMatch.index : remainder.length;
+	const body = remainder.slice(0, endIndex);
+	return body.trim();
+}
+
+function normalizeId(value: string): string {
+	return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
+function parseTableRows(section?: string | null): string[] {
+	if (!section) return [];
+	const lines = section
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => line.startsWith('|'));
+	if (!lines.length) return [];
+	const rows = lines.filter((line) => !/^\|\s*-/.test(line));
+	return rows.length > 1 ? rows.slice(1) : [];
+}
+
+function parseIdList(raw: string, pattern: RegExp): string[] {
+	return raw
+		.split(/[;,]/)
+		.map((part) => normalizeId(part))
+		.filter((item) => item && pattern.test(item));
+}
+
+export function validateStep1Tables(text: string): { valid: boolean; errors: string[] } {
+	const errors: string[] = [];
+
+	const sections = {
+		losses: extractSectionBody(text, '=== LOSSES ==='),
+		hazards: extractSectionBody(text, '=== HAZARDS ==='),
+		constraints: extractSectionBody(text, '=== SAFETY CONSTRAINTS ==='),
+		tableA: extractSectionBody(text, '=== TABLE A: LOSS TO HAZARDS ==='),
+		tableB: extractSectionBody(text, '=== TABLE B: HAZARD TO SAFETY CONSTRAINTS ==='),
+	};
+
+	for (const [name, content] of Object.entries(sections)) {
+		if (!content) {
+			errors.push(`Missing section: ${name.replace(/([A-Z])/g, ' $1').trim().toLowerCase()}.`);
+		}
+	}
+
+	const lossLines = (sections.losses || '')
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => /^L\d+/i.test(line));
+	const losses = lossLines
+		.map((line) => {
+			const match = line.match(/^L(\d+)/i);
+			return match ? `L${match[1]}` : '';
+		})
+		.filter(Boolean) as string[];
+	const lossSet = new Set(losses);
+	if (!losses.length) errors.push('No valid losses were parsed from Step 1 output.');
+
+	const hazardLines = (sections.hazards || '')
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => /^H\d+/i.test(line));
+	const hazards = hazardLines.map(parseHazardRow).filter((hazard) => hazard.id);
+	const hazardMap = new Map(hazards.map((hazard) => [hazard.id, hazard]));
+	if (!hazards.length) errors.push('No hazards were parsed from Step 1 output.');
+
+	const constraintLines = (sections.constraints || '')
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => /^SC\d+/i.test(line));
+	const constraints = constraintLines
+		.map((line) => {
+			const match = line.match(/^SC(\d+)/i);
+			const id = match ? `SC${match[1]}` : '';
+			const addressesMatch = line.match(/addresses\s*:\s*([^)]+)/i);
+			const addresses = addressesMatch ? parseIdList(addressesMatch[1], /^H\d+$/i) : [];
+			if (id && !addresses.length) {
+				errors.push(`Constraint ${id} is missing hazard addresses.`);
+			}
+			return { id, addresses };
+		})
+		.filter((entry) => entry.id);
+	const constraintMap = new Map(constraints.map((entry) => [entry.id, new Set(entry.addresses)]));
+	if (!constraints.length) errors.push('No safety constraints were parsed from Step 1 output.');
+
+	const tableARows = parseTableRows(sections.tableA);
+	const tableBRows = parseTableRows(sections.tableB);
+
+	const coveredLosses = new Set<string>();
+	for (const hazard of hazards) {
+		for (const lossId of hazard.leadsToLosses) {
+			if (!lossSet.has(lossId)) {
+				errors.push(`Hazard ${hazard.id} references undefined loss ${lossId}.`);
+			} else {
+				coveredLosses.add(lossId);
+			}
+		}
+	}
+
+	for (const lossId of losses) {
+		if (!coveredLosses.has(lossId)) {
+			errors.push(`Loss ${lossId} is not covered by any hazard leads_to listing.`);
+		}
+	}
+
+	for (const row of tableARows) {
+		const cells = row
+			.split('|')
+			.map((cell) => cell.trim())
+			.filter((cell) => cell);
+		if (cells.length < 2) {
+			errors.push(`Malformed Table A row: "${row}".`);
+			continue;
+		}
+		const lossId = normalizeId(cells[0]);
+		if (!/^L\d+$/i.test(lossId)) {
+			errors.push(`Table A row "${row}" references an invalid loss identifier.`);
+			continue;
+		}
+		if (!lossSet.has(lossId)) {
+			errors.push(`Table A row references unknown loss ${lossId}.`);
+			continue;
+		}
+		const hazardIds = parseIdList(cells[1], /^H\d+$/i);
+		if (!hazardIds.length) {
+			errors.push(`Table A row for ${lossId} must list at least one hazard.`);
+		}
+		for (const hazardId of hazardIds) {
+			const hazard = hazardMap.get(hazardId);
+			if (!hazard) {
+				errors.push(`Table A lists unknown hazard ${hazardId}.`);
+				continue;
+			}
+			if (!hazard.leadsToLosses.includes(lossId)) {
+				errors.push(`Hazard ${hazardId} does not link to ${lossId} but appears in Table A.`);
+			}
+		}
+	}
+
+	for (const row of tableBRows) {
+		const cells = row
+			.split('|')
+			.map((cell) => cell.trim())
+			.filter((cell) => cell);
+		if (cells.length < 2) {
+			errors.push(`Malformed Table B row: "${row}".`);
+			continue;
+		}
+		const hazardId = normalizeId(cells[0]);
+		if (!/^H\d+$/i.test(hazardId)) {
+			errors.push(`Table B row "${row}" references an invalid hazard identifier.`);
+			continue;
+		}
+		if (!hazardMap.has(hazardId)) {
+			errors.push(`Table B references unknown hazard ${hazardId}.`);
+			continue;
+		}
+		const constraintIds = parseIdList(cells[1], /^SC\d+$/i);
+		if (!constraintIds.length) {
+			errors.push(`Table B row for ${hazardId} must list at least one constraint.`);
+			continue;
+		}
+		for (const constraintId of constraintIds) {
+			const addresses = constraintMap.get(constraintId);
+			if (!addresses) {
+				errors.push(`Table B references unknown constraint ${constraintId}.`);
+				continue;
+			}
+			if (!addresses.has(hazardId)) {
+				errors.push(`Constraint ${constraintId} does not address hazard ${hazardId} but appears in Table B.`);
+			}
+		}
+	}
+
+	return { valid: errors.length === 0, errors };
 }
 
 /** -----------------------------------------------
@@ -866,7 +1088,8 @@ async function generateDiagramsForGuidedSession(apiKey: string, session: GuidedS
 	const prompt = buildStpaPrompt({ systemType: session.systemType, text: session.systemText });
 	const result = await runModel(apiKey, prompt);
 
-	const cs = deriveControlStructFromText(session.systemText);
+	const step2Cs = session.step2Text ? parseStep2ControlStructure(session.step2Text) : undefined;
+	const cs = step2Cs ?? deriveControlStructFromText(session.systemText);
 	const csMermaid = buildControlStructureMermaid(cs);
 	const impactMermaid = buildImpactGraphMermaid(result);
 
@@ -908,6 +1131,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const chatProvider = new StpaChatViewProvider(context);
 	let pendingSmartEditPlan: SmartEditPlan | null = null;
+	const resetGuidedSessionState = () => {
+		guidedSession = null;
+		pendingJump = null;
+		pendingSmartEditPlan = null;
+		lastContext = null;
+	};
+	chatProvider.onResetRequest = resetGuidedSessionState;
+	const sendGuidedStage = (stage: UiStage, ctx?: StageContext) => {
+		chatProvider.sendToWebview({
+			type: 'guidedActions',
+			payload: buildStagePayload(stage, ctx),
+		});
+	};
 	context.subscriptions.push(vscode.window.registerWebviewViewProvider(StpaChatViewProvider.viewId, chatProvider));
 
 	// Open the STPA Agent view container on activation (so the chat is visible)
@@ -1128,8 +1364,18 @@ export function activate(context: vscode.ExtensionContext) {
 	 * Preview Diagrams (classic)
 	 * -------------------------------------------- */
 	const previewDiagCmd = vscode.commands.registerCommand('stpa-agent.previewDiagrams', async () => {
+		if (guidedSession && guidedSession.currentStep < 2) {
+			chatProvider.sendToWebview({
+				type: 'infoMessage',
+				payload: { text: 'Diagrams are available after Step 2 (Control Structure) is completed.' },
+			});
+			return;
+		}
 		if (!lastContext) {
-			vscode.window.showInformationMessage('No analysis to preview. Run "Analyze" first.');
+			chatProvider.sendToWebview({
+				type: 'infoMessage',
+				payload: { text: 'No diagrams yet. Complete Step 2 to generate diagrams.' },
+			});
 			return;
 		}
 
@@ -1209,84 +1455,6 @@ export function activate(context: vscode.ExtensionContext) {
 	/** --------------------------------------------
 	 * Smart Edit command (shared)
 	 * -------------------------------------------- */
-	// const smartEditCmd = vscode.commands.registerCommand('stpa-agent.smartEdit', async (instruction?: string) => {
-	// 	try {
-	// 		if (!instruction || !instruction.trim()) return 'No instruction provided.';
-	// 		const scope: EditScope | undefined = guidedSession
-	// 			? {
-	// 				step: guidedSession.currentStep,
-	// 				// כרגע זה בעיקר בשביל תוכניות תיקון של Step 1; שאר האכיפה תהיה לפי טווח שורות
-	// 				allowedSections: ['LOSSES', 'HAZARDS', 'SAFETY_CONSTRAINTS', 'REFINED_HAZARDS'],
-	// 			}
-	// 			: undefined;
-
-	// 		const { applied, ranges, plan } = await smartEditFromChat(instruction, undefined, scope);
-
-	// 		// Paint only newly inserted/replaced ranges in green
-	// 		const editor = vscode.window.activeTextEditor;
-	// 		if (editor) {
-	// 			stpaAddedGreenDecoration && editor.setDecorations(stpaAddedGreenDecoration, ranges || []);
-
-	// 			// Optional: clear highlights after 12 seconds
-	// 			if (ranges?.length) {
-	// 				setTimeout(() => {
-	// 					try { editor.setDecorations(stpaAddedGreenDecoration, []); } catch { }
-	// 				}, 12000);
-	// 			}
-	// 		}
-
-	// 		// auto-save after smart edit so user doesn't need to save manually
-	// 		await vscode.window.activeTextEditor?.document.save();
-
-	// 		// after edit: show actions again for current guided step
-	// 		if (guidedSession) {
-	// 			const stage =
-	// 				guidedSession.currentStep === 1
-	// 					? 'afterStep1'
-	// 					: guidedSession.currentStep === 2
-	// 						? 'afterStep2'
-	// 						: guidedSession.currentStep === 3
-	// 							? 'afterStep3'
-	// 							: 'afterStep4';
-
-	// 			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
-	// 		}
-
-	// 		// If a follow-up plan was created (Step 1 consistency), show it in the chat and keep it pending.
-	// 		if (plan && plan.actions && plan.actions.length) {
-	// 			pendingSmartEditPlan = plan;
-	// 			chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: plan });
-	// 		}
-
-	// 		let summary = `Smart edit applied ${applied.length} change(s):\n` + applied.join('\n');
-	// 		if (plan && plan.actions && plan.actions.length) {
-	// 			summary += `\n\nSuggested follow-up fixes are ready (${plan.actions.length}). Review and apply them from the chat.`;
-	// 		}
-	// 		return summary;
-	// 	} catch (e: any) {
-	// 		vscode.window.showErrorMessage(`Smart edit failed: ${e?.message || e}`);
-	// 		// After an error, restore the guided action buttons (EDIT/APPROVE) so the UI doesn't get "stuck".
-	// 		if (guidedSession) {
-	// 			const stage =
-	// 				guidedSession.currentStep === 1
-	// 					? 'afterStep1'
-	// 					: guidedSession.currentStep === 2
-	// 						? 'afterStep2'
-	// 						: guidedSession.currentStep === 3
-	// 							? 'afterStep3'
-	// 							: 'afterStep4';
-
-	// 			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
-	// 		}
-
-	// 		// If there is a pending plan, re-show it so its buttons (apply/discard) are visible again.
-	// 		if (pendingSmartEditPlan && pendingSmartEditPlan.actions?.length) {
-	// 			chatProvider.sendToWebview({ type: 'showSmartEditPlan', payload: pendingSmartEditPlan });
-	// 		}
-
-	// 		return `Smart edit failed: ${e?.message || e}`;
-	// 	}
-	// });
 
 	const smartEditCmd = vscode.commands.registerCommand(
 		'stpa-agent.smartEdit',
@@ -1330,7 +1498,7 @@ export function activate(context: vscode.ExtensionContext) {
 				const savePromise = editor && ranges?.length ? editor.document.save() : undefined;
 
 				if (guidedSession) {
-					const stage =
+					const stage: UiStage =
 						guidedSession.currentStep === 1
 							? 'afterStep1'
 							: guidedSession.currentStep === 2
@@ -1339,10 +1507,7 @@ export function activate(context: vscode.ExtensionContext) {
 									? 'afterStep3'
 									: 'afterStep4';
 
-					chatProvider.sendToWebview({
-						type: 'guidedActions',
-						payload: { stage },
-					});
+					sendGuidedStage(stage);
 				}
 
 				if (plan?.actions?.length) {
@@ -1446,37 +1611,10 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		let systemText = editor.document.getText().trim();
+		const systemText = editor.document.getText().trim();
 		if (!systemText) {
 			chatProvider.sendToWebview({ type: 'toast', payload: 'System description file is empty.' });
 			return;
-		}
-
-		// ✅ Step 1 pre-validation (Mode B)
-		const pre = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
-
-		const out = vscode.window.createOutputChannel('STPA Agent');
-		out.clear();
-		out.appendLine(formatIssuesTable(pre));
-		out.show(true);
-
-		const decision = await promptOnIssues(pre);
-		if (decision === 'cancel') {
-			chatProvider.sendToWebview({ type: 'toast', payload: 'Step 1 canceled (refine the system description and try again).' });
-			return;
-		}
-
-		// Optional AI autofix (only if you want it in guided too)
-		if (decision === 'autofix') {
-			await generateAndInsertMissingSections({
-				apiKey,
-				editor,
-				baseText: systemText,
-				systemType: detectSystemType(systemText),
-				issues: pre.issues,
-			});
-
-			systemText = editor.document.getText().trim();
 		}
 
 		const suggestedName = path.basename(editor.document.fileName, path.extname(editor.document.fileName));
@@ -1508,15 +1646,13 @@ export function activate(context: vscode.ExtensionContext) {
 				payload: { role: 'system', text: `Step 1 completed and saved to ${project.baseName}_guided.md` },
 			});
 
-			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage: 'afterStep1' } });
+			sendGuidedStage('afterStep1');
 		} catch (e: any) {
 			chatProvider.sendToWebview({ type: 'toast', payload: `Step 1 failed: ${e?.message || e}` });
 		} finally {
 			chatProvider.sendToWebview({ type: 'busy', payload: false });
 		}
 	});
-
-
 	const guidedContinueStep2Cmd = vscode.commands.registerCommand('stpa-agent.guided.continueStep2', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
 		if (!apiKey || !guidedSession) return;
@@ -1545,7 +1681,7 @@ export function activate(context: vscode.ExtensionContext) {
 				payload: { role: 'system', text: `Step 2 completed and appended to guided file.` },
 			});
 
-			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage: 'afterStep2' } });
+			sendGuidedStage('afterStep2');
 		} catch (e: any) {
 			chatProvider.sendToWebview({ type: 'toast', payload: `Step 2 failed: ${e?.message || e}` });
 		} finally {
@@ -1598,7 +1734,7 @@ export function activate(context: vscode.ExtensionContext) {
 				payload: { role: 'system', text: `Step 3 completed and appended to guided file.` },
 			});
 
-			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage: 'afterStep3' } });
+			sendGuidedStage('afterStep3');
 		} catch (e: any) {
 			chatProvider.sendToWebview({ type: 'toast', payload: `Step 3 failed: ${e?.message || e}` });
 		} finally {
@@ -1640,13 +1776,20 @@ export function activate(context: vscode.ExtensionContext) {
 				payload: { role: 'system', text: `Step 4 completed and appended to guided file.` },
 			});
 
-			chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage: 'afterStep4' } });
+			sendGuidedStage('afterStep4');
 		} catch (e: any) {
 			chatProvider.sendToWebview({ type: 'toast', payload: `Step 4 failed: ${e?.message || e}` });
 		} finally {
 			chatProvider.sendToWebview({ type: 'busy', payload: false });
 		}
 	});
+
+	const guidedEditMessages: Record<number, string> = {
+		1: `Guided file opened. Edit Step 1 in chat (e.g., "add L5: ...", "remove L2", "add H7: ...").`,
+		2: `Guided file opened. Edit Step 2 in chat (e.g., "add CA6: ...", "remove CA2", "add Feedback3: ...", "add Loop2: ...").`,
+		3: `Guided file opened. Edit Step 3 in chat (e.g., "add UCA9: ...", "remove UCA3", "update UCA2: ...").`,
+		4: `Guided file opened. Edit Step 4 in chat (e.g., "add CS5: ...", "remove CS2", "update CS1: ...").`,
+	};
 
 	const guidedEditCurrentCmd = vscode.commands.registerCommand('stpa-agent.guided.editCurrentStep', async () => {
 		if (!guidedSession) {
@@ -1656,15 +1799,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 		await openGuidedInEditor(guidedSession);
 
+		const editMessage =
+			guidedEditMessages[guidedSession.currentStep] ??
+			`Guided file opened. Add your edits in chat (e.g., "add L5", "remove H2", "add UCA9").`;
+
 		chatProvider.sendToWebview({
 			type: 'append',
 			payload: {
 				role: 'system',
-				text: `Guided file opened. Add your edits in chat (e.g., "add L5", "remove H2", "add UCA9").`,
+				text: editMessage,
 			},
 		});
 
-		const stage =
+		const stage: UiStage =
 			guidedSession.currentStep === 1
 				? 'afterStep1'
 				: guidedSession.currentStep === 2
@@ -1673,7 +1820,7 @@ export function activate(context: vscode.ExtensionContext) {
 						? 'afterStep3'
 						: 'afterStep4';
 
-		chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
+		sendGuidedStage(stage);
 	});
 
 	const guidedGenerateDiagramsCmd = vscode.commands.registerCommand('stpa-agent.guided.generateDiagrams', async () => {
@@ -1713,52 +1860,25 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			// 1) active editor חייב להיות תיאור מערכת
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				chatProvider.sendToWebview({ type: 'toast', payload: 'Open a system description file first.' });
 				return;
 			}
 
-			let systemText = editor.document.getText().trim();
+			const systemText = editor.document.getText().trim();
 			if (!systemText) {
 				chatProvider.sendToWebview({ type: 'toast', payload: 'System description file is empty.' });
 				return;
 			}
 
-			// 2) pre-check כמו step1
-			const pre = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
-			const out = vscode.window.createOutputChannel('STPA Agent');
-			out.clear();
-			out.appendLine(formatIssuesTable(pre));
-			out.show(true);
-
-			const decision = await promptOnIssues(pre);
-			if (decision === 'cancel') {
-				chatProvider.sendToWebview({ type: 'toast', payload: 'Jump canceled (refine the system description and try again).' });
-				return;
-			}
-
-			if (decision === 'autofix') {
-				await generateAndInsertMissingSections({
-					apiKey,
-					editor,
-					baseText: systemText,
-					systemType: detectSystemType(systemText),
-					issues: pre.issues,
-				});
-				systemText = editor.document.getText().trim();
-			}
-
 			const systemType = detectSystemType(systemText);
 
-			// אם בחר Step 1 → פשוט לקרוא ל-startStep1
 			if (targetStep === 1) {
 				await vscode.commands.executeCommand('stpa-agent.guided.startStep1');
 				return;
 			}
 
-			// אחרת: שומרים pendingJump ומבקשים ממנו לפתוח guided.md
 			pendingJump = { targetStep, systemText, systemType };
 
 			chatProvider.sendToWebview({
@@ -1770,10 +1890,7 @@ export function activate(context: vscode.ExtensionContext) {
 				},
 			});
 
-			chatProvider.sendToWebview({
-				type: 'guidedActions',
-				payload: { stage: 'confirmJumpGuidedFile', targetStep },
-			});
+			sendGuidedStage('confirmJumpGuidedFile', { targetStep });
 		}
 	);
 	const guidedJumpConfirmCmd = vscode.commands.registerCommand(
@@ -1849,10 +1966,7 @@ export function activate(context: vscode.ExtensionContext) {
 					},
 				});
 
-				chatProvider.sendToWebview({
-					type: 'guidedActions',
-					payload: { stage: 'jumpMissingSteps', missingStep, targetStep: target, lastFound: lf },
-				});
+				sendGuidedStage('jumpMissingSteps', { missingStep, targetStep: target, lastFound: lf });
 
 				return;
 			}
@@ -1896,10 +2010,7 @@ export function activate(context: vscode.ExtensionContext) {
 						text: `Step ${target} already exists in the guided file. What would you like to do?`,
 					},
 				});
-				chatProvider.sendToWebview({
-					type: 'guidedActions',
-					payload: { stage: 'jumpTargetExists', targetStep: target },
-				});
+				sendGuidedStage('jumpTargetExists', { targetStep: target });
 				return;
 			}
 			pendingJump = null;
@@ -1985,10 +2096,8 @@ export function activate(context: vscode.ExtensionContext) {
 			await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
 
 			// Ensure the usual "afterStepX" buttons appear (same as normal flow)
-			chatProvider.sendToWebview({
-				type: 'guidedActions',
-				payload: { stage: `afterStep${targetStep}` },
-			});
+			const stage: UiStage = `afterStep${targetStep}` as UiStage;
+			sendGuidedStage(stage);
 		}
 	);
 
@@ -2004,7 +2113,7 @@ export function activate(context: vscode.ExtensionContext) {
 						? 'afterStep3'
 						: 'afterStep4';
 
-		chatProvider.sendToWebview({ type: 'guidedActions', payload: { stage } });
+		sendGuidedStage(stage);
 
 		// אם יש plan תלוי – להציג שוב (כדי לא להיתקע בלי כפתורים שלו)
 		if (pendingSmartEditPlan && pendingSmartEditPlan.actions?.length) {

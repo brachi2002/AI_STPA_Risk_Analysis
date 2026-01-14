@@ -3,6 +3,10 @@ import * as vscode from 'vscode';
 import OpenAI from 'openai';
 import { ValidationIssue } from './validator';
 
+/**
+ * Compose AI-driven additions for missing STPA description sections and insert them into a managed block.
+ */
+
 type SystemType = 'medical' | 'drone' | 'automotive' | 'generic';
 
 const AI_FIX_START = '<!-- STPA_AI_FIX_START -->';
@@ -84,6 +88,9 @@ function upsertAiFixBlock(original: string, blockContent: string): string {
     return (fullBlock + original).trim() + '\n';
 }
 
+/**
+ * Request section text from the AI and insert it into the document inside a guarded STPA_AI_FIX block.
+ */
 export async function generateAndInsertMissingSections(params: {
     apiKey: string;
     editor: vscode.TextEditor;

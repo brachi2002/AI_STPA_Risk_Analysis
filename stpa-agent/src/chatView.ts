@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
 
+/**
+ * Provides the STPA Agent chat webview and orchestrates communication between the UI and commands.
+ */
+
 type ToolbarIcons = {
   explain: vscode.Uri;
   diagram: vscode.Uri;
@@ -16,12 +20,16 @@ function getNonce(): string {
   return text;
 }
 
+/**
+ * Implements the chat webview view provider and mediates toolbar/chat actions.
+ */
 export class StpaChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = 'stpa-agent.chat';
   private _view?: vscode.WebviewView;
 
   // When true, the next time the webview signals "ready", we clear chat state/UI.
   private _clearOnNextReady = true;
+  public onResetRequest?: () => void;
 
   constructor(private readonly context: vscode.ExtensionContext) { }
 
@@ -123,10 +131,6 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
             case 'editCurrentStep':
               await vscode.commands.executeCommand('stpa-agent.guided.editCurrentStep');
-              break;
-
-            case 'generateDiagrams':
-              await vscode.commands.executeCommand('stpa-agent.guided.generateDiagrams');
               break;
 
             case 'confirmJumpGuidedFile':
@@ -245,6 +249,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
         // User clicked Clear in the UI
         case 'clear':
+          this.onResetRequest?.();
           this.sendToWebview({ type: 'reset' });
           break;
 
@@ -369,110 +374,216 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
         border: 1px dashed var(--border);
       }
 
-      .action-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin: 8px 0 14px 0;
-        justify-content: center;
-      }
-      .action-btn {
-        background: var(--btn-bg);
-        color: var(--btn-fg);
-        border: none;
-        padding: 6px 12px;
-        border-radius: 999px;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 12px;
-        white-space: nowrap;
-      }
-      .action-btn.secondary {
-        background: transparent;
-        border: 1px solid var(--border);
-        color: var(--fg);
-        font-weight: 500;
-      }
-      .action-btn:hover { background: var(--btn-bg-hover); }
-      .action-btn.secondary:hover { background: var(--vscode-editor-background); }
-
-      .toolbar {
+      .footer {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        align-items: center;
-      }
-      .toolbar-row {
-        display: flex;
         gap: 10px;
-        flex-wrap: wrap;
-        justify-content: center;
+        padding: 10px 8px 6px;
+        border-radius: 12px;
+        background: rgba(18, 23, 28, 0.92);
+        backdrop-filter: blur(12px);
       }
+
+      .toolbar-row {
+        width: 100%;
+        display: flex;
+        gap: 6px;
+      }
+
       .tool-btn {
+        flex: 1;
+        min-width: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 6px;
-        background: var(--btn-bg);
-        color: var(--btn-fg);
-        border: none;
-        padding: 8px 18px;
-        border-radius: 999px;
-        cursor: pointer;
+        padding: 6px 10px;
+        font-size: 11px;
         font-weight: 600;
-        font-size: 13px;
-        min-width: 150px;
-        min-height: 40px;
-        white-space: nowrap;
+        text-transform: none;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.04);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
       }
-      .tool-btn:hover { background: var(--btn-bg-hover); }
+
       .tool-btn.secondary {
-        background: var(--btn-bg);
-        color: var(--btn-fg);
-        border: none;
-        font-weight: 600;
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.02);
       }
-      .tool-btn.secondary:hover { background: var(--btn-bg-hover); }
 
-      .btn-icon img { width: 16px; height: 16px; }
-
-      .composer {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 8px;
-        align-items: end;
+      .tool-btn:hover,
+      .tool-btn:focus-visible {
+        background: rgba(255, 255, 255, 0.18);
+        border-color: rgba(255, 255, 255, 0.45);
+        transform: translateY(-1px);
       }
-      textarea {
+
+      .tool-btn .btn-icon img {
+        width: 16px;
+        height: 16px;
+        filter: invert(1);
+      }
+
+      .composer-row {
         width: 100%;
-        min-height: 56px;
-        max-height: 160px;
-        resize: vertical;
-        padding: 8px;
-        border-radius: 8px;
-        background: var(--input-bg);
-        color: var(--input-fg);
-        border: 1px solid var(--input-border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
-      .model-select {
-        min-height: 56px;
-        padding: 8px;
-        border-radius: 8px;
-        background: var(--input-bg);
-        color: var(--input-fg);
-        border: 1px solid var(--input-border);
-      }
-      .send-btn {
-        background: var(--btn-bg);
-        color: var(--btn-fg);
-        border: none;
-        padding: 0 22px;
-        min-height: 56px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
+
+      .composer-row textarea {
+        flex: 1;
+        min-height: 36px;
+        max-height: 80px;
+        width: auto;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.04);
+        color: #fff;
+        padding: 8px 10px;
         font-size: 13px;
+        resize: none;
       }
-      .send-btn:hover { background: var(--btn-bg-hover); }
+
+      .composer-row textarea::placeholder {
+        color: rgba(255, 255, 255, 0.65);
+      }
+
+      .composer-buttons {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        flex-shrink: 0;
+      }
+
+      .composer-buttons button {
+        position: absolute;
+        inset: 0;
+      }
+
+      .send-btn {
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #4bc0ff, #0077ff);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .send-btn:hover,
+      .send-btn:focus-visible {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.35);
+      }
+
+      .send-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .model-row {
+        width: 100%;
+      }
+
+      .model-select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .model-select option {
+        background: var(--vscode-editor-background);
+        color: #000;
+      }
+
+      .action-row {
+        border-radius: 12px;
+        padding: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .action-btn {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--vscode-foreground);
+        border: 1px solid rgba(15, 23, 42, 0.25);
+        border-radius: 14px;
+        min-height: 34px;
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+
+      .action-btn.primary {
+        border: none;
+        background: linear-gradient(135deg, var(--light-blue, #4bc0ff), #0077ff);
+        color: #fff;
+      }
+
+      .action-btn:hover,
+      .action-btn:focus-visible {
+        background: #fff;
+        border-color: rgba(15, 23, 42, 0.5);
+      }
+
+      .action-btn.secondary {
+        background: rgba(255, 255, 255, 0.85);
+        border-color: rgba(136, 145, 183, 0.6);
+      }
+
+      .action-btn.secondary:hover,
+      .action-btn.secondary:focus-visible {
+        background: rgba(255, 255, 255, 1);
+        border-color: rgba(69, 79, 112, 0.7);
+      }
+
+      .busy textarea,
+      .busy .send-btn,
+      .busy .tool-btn {
+        opacity: 0.99;
+      }
+
+      @media (max-width: 640px) {
+        .toolbar-row {
+          flex-wrap: wrap;
+        }
+        .composer-row {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .composer-buttons {
+          width: 100%;
+          justify-content: space-between;
+        }
+      }
+
+      .tool-btn:focus,
+      .composer-row textarea:focus,
+      .model-select:focus,
+      .send-btn:focus {
+        outline: 1px solid rgba(255, 255, 255, 0.75);
+        outline-offset: 2px;
+      }
 
       .busy textarea,
       .busy button,
@@ -991,8 +1102,7 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
 
           if (stage === 'afterStep4') {
             renderActionButtons('afterStep4', [
-              { label: 'Edit Step 4', action: 'editCurrentStep', secondary: true },
-              { label: 'Generate Diagrams', action: 'generateDiagrams' }
+              { label: 'Edit Step 4', action: 'editCurrentStep', secondary: true }
             ]);
           }
           
@@ -1077,36 +1187,42 @@ export class StpaChatViewProvider implements vscode.WebviewViewProvider {
               <div id="boot-marker" style="font-size: 11px; color: var(--muted); text-align: center;">WEBVIEW BOOT OK</div>
             </div>
 
-            <div class="toolbar">
+            <div class="footer">
               <div class="toolbar-row">
                 <button id="btnPreview" class="tool-btn">
                   <span class="btn-icon"><img src="${icons.diagram}" alt="" /></span>
                   <span class="btn-label">Preview Diagrams</span>
                 </button>
-
                 <button id="btnExplain" class="tool-btn">
                   <span class="btn-icon"><img src="${icons.explain}" alt="" /></span>
                   <span class="btn-label">Explain current step</span>
                 </button>
-              </div>
-
-              <div class="toolbar-row">
                 <button id="btnClear" class="tool-btn secondary">
                   <span class="btn-icon"><img src="${icons.clear}" alt="" /></span>
-                  <span class="btn-label">Clear</span>
+                  <span class="btn-label">Reset</span>
                 </button>
               </div>
-            </div>
 
-            <div class="composer">
-              <textarea id="input" placeholder="Type your system description or STPA request here."></textarea>
-              <select id="modelSelect" class="model-select" title="Model">
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="gpt-4o">gpt-4o</option>
-                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                <option value="gpt-4.1">gpt-4.1</option>
-              </select>
-              <button id="btnSend" class="send-btn">Send</button>
+              <div class="composer-row">
+                <textarea id="input" placeholder="Type your STPA request here."></textarea>
+                <div class="composer-buttons">
+                  <button id="btnSend" class="send-btn" aria-label="Send message">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="model-row">
+                <select id="modelSelect" class="model-select" title="Model">
+                  <option value="gpt-4o-mini">gpt-4o-mini</option>
+                  <option value="gpt-4o">gpt-4o</option>
+                  <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                  <option value="gpt-4.1">gpt-4.1</option>
+                </select>
+              </div>
             </div>
           </div>
 
