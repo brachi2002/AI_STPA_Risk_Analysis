@@ -1611,11 +1611,43 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const systemText = editor.document.getText().trim();
+		let systemText = editor.document.getText().trim();
 		if (!systemText) {
 			chatProvider.sendToWebview({ type: 'toast', payload: 'System description file is empty.' });
 			return;
 		}
+
+		// --- Pre-check (same flow as Analyze Current File) ---
+		const pre = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
+
+		const out = vscode.window.createOutputChannel('STPA Agent');
+		out.clear();
+		out.appendLine(formatIssuesTable(pre));
+		out.show(true);
+
+		const decision = await promptOnIssues(pre);
+		if (decision === 'cancel') return;
+
+		if (decision === 'autofix') {
+			await generateAndInsertMissingSections({
+				apiKey,
+				editor,
+				baseText: systemText,
+				systemType: detectSystemType(systemText),
+				issues: pre.issues,
+			});
+
+			systemText = editor.document.getText().trim();
+			const pre2 = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
+
+			out.appendLine('\n--- Re-check after AI auto-complete ---');
+			out.appendLine(formatIssuesTable(pre2));
+
+			const proceed = pre2.issues.length === 0 ? 'continue' : await promptOnIssues(pre2);
+			if (proceed !== 'continue') return;
+		}
+
+
 
 		const suggestedName = path.basename(editor.document.fileName, path.extname(editor.document.fileName));
 		const project = await prepareProjectFolder(suggestedName);
@@ -1653,6 +1685,9 @@ export function activate(context: vscode.ExtensionContext) {
 			chatProvider.sendToWebview({ type: 'busy', payload: false });
 		}
 	});
+
+
+
 	const guidedContinueStep2Cmd = vscode.commands.registerCommand('stpa-agent.guided.continueStep2', async () => {
 		const apiKey = process.env.OPENAI_API_KEY;
 		if (!apiKey || !guidedSession) return;
@@ -1866,11 +1901,42 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			const systemText = editor.document.getText().trim();
+			let systemText = editor.document.getText().trim();
 			if (!systemText) {
 				chatProvider.sendToWebview({ type: 'toast', payload: 'System description file is empty.' });
 				return;
 			}
+
+			// --- Pre-check (same flow as Analyze Current File) ---
+			const pre = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
+
+			const out = vscode.window.createOutputChannel('STPA Agent');
+			out.clear();
+			out.appendLine(formatIssuesTable(pre));
+			out.show(true);
+
+			const decision = await promptOnIssues(pre);
+			if (decision === 'cancel') return;
+
+			if (decision === 'autofix') {
+				await generateAndInsertMissingSections({
+					apiKey,
+					editor,
+					baseText: systemText,
+					systemType: detectSystemType(systemText),
+					issues: pre.issues,
+				});
+
+				systemText = editor.document.getText().trim();
+				const pre2 = validateInput(systemText, { stage: 'step1', languageId: editor.document.languageId });
+
+				out.appendLine('\n--- Re-check after AI auto-complete ---');
+				out.appendLine(formatIssuesTable(pre2));
+
+				const proceed = pre2.issues.length === 0 ? 'continue' : await promptOnIssues(pre2);
+				if (proceed !== 'continue') return;
+			}
+
 
 			const systemType = detectSystemType(systemText);
 

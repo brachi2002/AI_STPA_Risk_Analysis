@@ -14,6 +14,7 @@ const AI_FIX_END = '<!-- STPA_AI_FIX_END -->';
 
 function missingSectionsFromIssues(issues: ValidationIssue[]): string[] {
     const map: Record<string, string> = {
+        TOO_SHORT: 'System context',
         MISSING_SYSTEM_CONTEXT: 'System context',
         MISSING_OBJECTIVES: 'System objectives / purpose',
         MISSING_BOUNDARY: 'System boundary (in-scope / out-of-scope)',
